@@ -32,19 +32,24 @@ CFO（あなた）を頂点に、**3つの部**が並び、各部に**部長（�
 
 ```
 .claude/agents/
-├── _LEAD_TEMPLATE.md      部長を作るときの雛形
-├── _TEMPLATE.md           専門部下を作るときの雛形
+├── README.md              このファイル
 ├── finance/               ファイナンス部
-│   └── finance-lead.md
+│   ├── finance-lead.md         部長
+│   └── monthly-close-analyst.md 専門部下：月次クローズ・予実差異 解説（稼働中）
 ├── admin/                 管理部
-│   └── admin-lead.md
+│   └── admin-lead.md           部長
 └── planning/              経営企画部
-    └── planning-lead.md
+    └── planning-lead.md        部長
+
+.claude/agent-templates/   ← 雛形置き場（agents/ の外。エージェントとして登録されないように分離）
+├── _LEAD_TEMPLATE.md      部長を作るときの雛形
+└── _TEMPLATE.md           専門部下を作るときの雛形
 ```
 
 ## 作り方の順序（ウォーターフォール禁止）
 
-骨格（3部長）は先に置いてありますが、**専門部下は1体ずつ反復して肉付け**します。
-1番手はファイナンス部の「月次クローズ・予実差異 解説」担当です。
+骨格（3部長）を先に置き、**専門部下は1体ずつ反復して肉付け**します。
+- ✅ 1体目：ファイナンス部「月次クローズ・予実差異 解説」（monthly-close-analyst）＝稼働中
+- 次：SaaS KPI / シナリオ・runway … の順（CLAUDE.md のエージェント構築順に従う）
 
 共通前提は [CLAUDE.md](../../CLAUDE.md) を参照。
