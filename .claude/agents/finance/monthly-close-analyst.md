@@ -64,6 +64,6 @@ description: 月次クローズ後の予実差異を3セグメント別に要因
 - 意思決定・打ち手の断定（候補提示まで）。
 - 役会資料の清書。
 - 事業側 Why（ファネル・定性要因）の断定 → planning-lead の領域。フラグして渡す。
-- 着地見込み・シナリオ → scenario-runway-analyst の領域。
+- 着地見込み・シナリオ・CFモニタリング → cashflow-monitor（キャッシュフロー・モニタリング担当）の領域。
 - MRR等SaaS固有KPIの深掘り → saas-kpi-analyst の領域。
   ただし「セグメントとしての ninaite.ai の予実」は本担当が扱う。
