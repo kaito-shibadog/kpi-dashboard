@@ -149,7 +149,13 @@ function drawPLChart(container, actualData, budgetData) {
 
   const headers = actualData[0];
   const colStart = 2;
-  const labels = headers.slice(colStart, colStart + 12).filter(h => h && h !== '合計' && !h.includes('その他'));
+  const allLabels = headers.slice(colStart, colStart + 12).filter(h => h && h !== '合計' && !h.includes('その他'));
+
+  // 期間に応じたデータ範囲を決定
+  const [startIdx, endIdx] = getPeriodRange(allLabels.length);
+  const labels = allLabels.slice(startIdx, endIdx + 1);
+  const dataColStart = colStart + startIdx;
+  const dataColEnd = colStart + endIdx + 1;
 
   const actualRows = {};
   actualData.forEach(row => {
@@ -184,7 +190,7 @@ function drawPLChart(container, actualData, budgetData) {
 
   ['売上高', '売上総利益', '営業利益'].forEach(key => {
     if (actualRows[key]) {
-      const values = actualRows[key].slice(colStart, colStart + 12)
+      const values = actualRows[key].slice(dataColStart, dataColEnd)
         .map(v => typeof v === 'number' ? Math.round(v / 10000) : 0);
       datasets.push({
         label: key,
@@ -200,7 +206,7 @@ function drawPLChart(container, actualData, budgetData) {
   });
 
   if (budgetRows['売上総利益']) {
-    const values = budgetRows['売上総利益'].slice(colStart, colStart + 12)
+    const values = budgetRows['売上総利益'].slice(dataColStart, dataColEnd)
       .map(v => typeof v === 'number' ? Math.round(v / 10000) : 0);
     datasets.push({
       label: '売上総利益（予算）',
@@ -224,15 +230,41 @@ function drawPLChart(container, actualData, budgetData) {
         legend: { position: 'top' }
       },
       scales: {
+        x: {
+          grid: {
+            display: true
+          }
+        },
         y: {
           beginAtZero: true,
           ticks: {
             callback: v => v.toLocaleString() + '万円'
+          },
+          grid: {
+            drawBorder: true,
+            color: ctx => {
+              return ctx.tick.value === 0 ? '#333333' : '#e5e7eb';
+            },
+            lineWidth: ctx => {
+              return ctx.tick.value === 0 ? 3 : 1;
+            }
           }
         }
       }
     }
   });
+}
+
+function getPeriodRange(totalMonths) {
+  switch (currentPeriod) {
+    case 'q1': return [0, 2];      // 11月-1月
+    case 'q2': return [3, 5];      // 2月-4月
+    case 'q3': return [6, 8];      // 5月-7月
+    case 'q4': return [9, 11];     // 8月-10月
+    case 'h1': return [0, 5];      // 11月-4月
+    case 'h2': return [6, 11];     // 5月-10月
+    default: return [0, totalMonths - 1];  // 全期間
+  }
 }
 
 function renderIndicators() {
