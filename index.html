@@ -15,7 +15,7 @@
     .period-btn.active { background: #2563eb; color: white; }
     .period-btn:not(.active) { color: #666; background: #e5e7eb; }
     .card { background: white; border-radius: 8px; border: 1px solid #e5e7eb; padding: 16px; margin-bottom: 16px; }
-    .chart-container { position: relative; height: 350px; margin-bottom: 24px; }
+    .chart-container { position: relative; height: 500px; margin-bottom: 24px; }
     table { width: 100%; border-collapse: collapse; font-size: 11px; margin-top: 16px; }
     th, td { border: 1px solid #e5e7eb; padding: 6px; text-align: right; }
     th { background: #f9fafb; font-weight: 600; }
@@ -126,23 +126,349 @@ function renderPLChart(container) {
     return;
   }
 
-  const card = document.createElement('div');
-  card.className = 'card';
-  card.innerHTML = '<h2 class="text-lg font-semibold mb-4">全社PL推移（月次）</h2>';
+  // グラフカード
+  const chartCard = document.createElement('div');
+  chartCard.className = 'card';
+
+  const titleDiv = document.createElement('div');
+  titleDiv.style.display = 'flex';
+  titleDiv.style.justifyContent = 'space-between';
+  titleDiv.style.alignItems = 'center';
+  titleDiv.style.marginBottom = '16px';
+
+  const titleH2 = document.createElement('h2');
+  titleH2.className = 'text-lg font-semibold';
+  titleH2.textContent = '全社PL推移（月次）';
+  titleDiv.appendChild(titleH2);
+
+  const checkboxLabel = document.createElement('label');
+  checkboxLabel.style.display = 'flex';
+  checkboxLabel.style.alignItems = 'center';
+  checkboxLabel.style.gap = '6px';
+  checkboxLabel.style.fontSize = '12px';
+  checkboxLabel.style.cursor = 'pointer';
+
+  const checkbox = document.createElement('input');
+  checkbox.type = 'checkbox';
+  checkbox.checked = true;
+  checkbox.id = 'budget-toggle';
+
+  checkboxLabel.appendChild(checkbox);
+  checkboxLabel.appendChild(document.createTextNode('予算を表示'));
+  titleDiv.appendChild(checkboxLabel);
+
+  chartCard.appendChild(titleDiv);
 
   const chartContainer = document.createElement('div');
   chartContainer.className = 'chart-container';
   chartContainer.id = 'pl-chart-container';
-  card.appendChild(chartContainer);
+  chartCard.appendChild(chartContainer);
 
-  container.appendChild(card);
+  container.appendChild(chartCard);
+
+  // チェックボックスのイベント
+  checkbox.addEventListener('change', () => {
+    chartContainer.innerHTML = '';
+    drawPLChart(chartContainer, actualSheet.data, budgetSheet.data, checkbox.checked);
+  });
+
+  // テーブルカード
+  const tableCard = document.createElement('div');
+  tableCard.className = 'card';
+  tableCard.innerHTML = '<h2 class="text-lg font-semibold mb-4">全社PL明細</h2>';
+
+  const table = document.createElement('table');
+  table.className = 'w-full border-collapse text-xs';
+  table.style.marginBottom = '0';
+
+  // ヘッダー
+  const headers = ['項目', '11月', '12月', '1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月'];
+  const thead = document.createElement('thead');
+  const headerRow = document.createElement('tr');
+  headerRow.style.borderBottom = '2px solid #d1d5db';
+  headers.forEach(h => {
+    const th = document.createElement('th');
+    th.textContent = h;
+    th.style.padding = '6px';
+    th.style.fontWeight = '600';
+    th.style.background = '#f9fafb';
+    th.style.textAlign = h === '項目' ? 'left' : 'right';
+    headerRow.appendChild(th);
+  });
+  thead.appendChild(headerRow);
+  table.appendChild(thead);
+
+  // データ取得
+  const actualRows = {};
+  const budgetRows = {};
+
+  actualSheet.data.forEach(row => {
+    if (!row || !row[0]) return;
+    const itemName = String(row[0]).trim();
+    if (itemName === '売上高合計') actualRows['売上高'] = row;
+    else if (itemName === '売上総利益') actualRows['売上総利益'] = row;
+    else if (itemName === '営業利益') actualRows['営業利益'] = row;
+  });
+
+  budgetSheet.data.forEach(row => {
+    if (!row || !row[0]) return;
+    const itemName = String(row[0]).trim();
+    if (itemName === '売上総利益') budgetRows['売上総利益'] = row;
+    else if (itemName === '営業利益') budgetRows['営業利益'] = row;
+  });
+
+  const tbody = document.createElement('tbody');
+  const items = ['売上高', '売上総利益', '営業利益'];
+
+  items.forEach(item => {
+    const actualRow = actualRows[item];
+    if (!actualRow) return;
+
+    const tr = document.createElement('tr');
+    tr.style.borderBottom = '1px solid #e5e7eb';
+
+    const itemCell = document.createElement('td');
+    itemCell.textContent = item;
+    itemCell.style.padding = '6px';
+    itemCell.style.textAlign = 'left';
+    itemCell.style.fontWeight = '500';
+    tr.appendChild(itemCell);
+
+    for (let i = 2; i < 14; i++) {
+      const td = document.createElement('td');
+      const value = actualRow[i] || 0;
+      td.textContent = (value / 10000).toLocaleString('ja-JP', {minimumFractionDigits: 0, maximumFractionDigits: 0});
+      td.style.padding = '6px';
+      td.style.textAlign = 'right';
+      tr.appendChild(td);
+    }
+
+    tbody.appendChild(tr);
+  });
+
+  table.appendChild(tbody);
+  tableCard.appendChild(table);
+  container.appendChild(tableCard);
 
   setTimeout(() => {
     drawPLChart(chartContainer, actualSheet.data, budgetSheet.data);
   }, 100);
+
+  // 直接雇用事業PL
+  renderBusinessPLChart(container, '直接雇用PL(見込+実績)', '直接雇用事業PL推移（月次）');
+
+  // 派遣事業PL
+  renderBusinessPLChart(container, '派遣PL(見込+実績)', '派遣事業PL推移（月次）');
 }
 
-function drawPLChart(container, actualData, budgetData) {
+function renderBusinessPLChart(container, sheetName, title) {
+  const sheet = allData.sheets?.[sheetName];
+
+  if (!sheet || !Array.isArray(sheet.data)) {
+    return;
+  }
+
+  // グラフカード
+  const chartCard = document.createElement('div');
+  chartCard.className = 'card';
+  chartCard.innerHTML = `<h2 class="text-lg font-semibold mb-4">${title}</h2>`;
+
+  const chartContainer = document.createElement('div');
+  chartContainer.className = 'chart-container';
+  chartContainer.id = `pl-chart-${sheetName}`;
+  chartCard.appendChild(chartContainer);
+
+  container.appendChild(chartCard);
+
+  // テーブルカード
+  const tableCard = document.createElement('div');
+  tableCard.className = 'card';
+  tableCard.innerHTML = `<h2 class="text-lg font-semibold mb-4">${title.replace('推移', '')}明細</h2>`;
+
+  const table = document.createElement('table');
+  table.className = 'w-full border-collapse text-xs';
+  table.style.marginBottom = '0';
+
+  // ヘッダー
+  const headers = ['項目', '11月', '12月', '1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月'];
+  const thead = document.createElement('thead');
+  const headerRow = document.createElement('tr');
+  headerRow.style.borderBottom = '2px solid #d1d5db';
+  headers.forEach(h => {
+    const th = document.createElement('th');
+    th.textContent = h;
+    th.style.padding = '6px';
+    th.style.fontWeight = '600';
+    th.style.background = '#f9fafb';
+    th.style.textAlign = h === '項目' ? 'left' : 'right';
+    headerRow.appendChild(th);
+  });
+  thead.appendChild(headerRow);
+  table.appendChild(thead);
+
+  // データ抽出
+  const actualRows = {};
+
+  sheet.data.forEach(row => {
+    if (!row || !row[0]) return;
+    const itemName = String(row[0]).trim();
+    if (itemName === '売上高合計') actualRows['売上高'] = row;
+    else if (itemName === '売上総利益' || itemName === '売上総利益合計') actualRows['売上総利益'] = row;
+    else if (itemName === '営業利益') actualRows['営業利益'] = row;
+    else if (itemName === '営業利益(本社費用割賦後)') actualRows['営業利益(本社費用割賦後)'] = row;
+  });
+
+  const tbody = document.createElement('tbody');
+  const items = ['売上高', '売上総利益', '営業利益', '営業利益(本社費用割賦後)'];
+
+  items.forEach(item => {
+    const actualRow = actualRows[item];
+    if (!actualRow) return;
+
+    const tr = document.createElement('tr');
+    tr.style.borderBottom = '1px solid #e5e7eb';
+
+    const itemCell = document.createElement('td');
+    itemCell.textContent = item;
+    itemCell.style.padding = '6px';
+    itemCell.style.textAlign = 'left';
+    itemCell.style.fontWeight = '500';
+    tr.appendChild(itemCell);
+
+    for (let i = 2; i < 14; i++) {
+      const td = document.createElement('td');
+      const value = actualRow[i] || 0;
+      td.textContent = (value / 10000).toLocaleString('ja-JP', {minimumFractionDigits: 0, maximumFractionDigits: 0});
+      td.style.padding = '6px';
+      td.style.textAlign = 'right';
+      tr.appendChild(td);
+    }
+
+    tbody.appendChild(tr);
+  });
+
+  table.appendChild(tbody);
+  tableCard.appendChild(table);
+  container.appendChild(tableCard);
+
+  setTimeout(() => {
+    drawBusinessChart(chartContainer, sheet.data);
+  }, 100);
+}
+
+function drawBusinessChart(container, actualData) {
+  const canvas = document.createElement('canvas');
+  container.appendChild(canvas);
+  const ctx = canvas.getContext('2d');
+
+  const headers = actualData[0];
+  const colStart = 2;
+  const allLabels = headers.slice(colStart, colStart + 12).filter(h => h && h !== '合計' && !h.includes('その他'));
+
+  // 期間に応じたデータ範囲を決定
+  const [startIdx, endIdx] = getPeriodRange(allLabels.length);
+  const labels = allLabels.slice(startIdx, endIdx + 1);
+  const dataColStart = colStart + startIdx;
+  const dataColEnd = colStart + endIdx + 1;
+
+  const actualRows = {};
+  actualData.forEach(row => {
+    if (!row || !row[0]) return;
+    const itemName = String(row[0]).trim();
+
+    if (itemName === '売上高合計') {
+      actualRows['売上高'] = row;
+    } else if (itemName === '売上総利益' || itemName === '売上総利益合計') {
+      actualRows['売上総利益'] = row;
+    } else if (itemName === '営業利益') {
+      actualRows['営業利益'] = row;
+    } else if (itemName === '営業利益(本社費用割賦後)') {
+      actualRows['営業利益(本社費用割賦後)'] = row;
+    }
+  });
+
+  const datasets = [];
+  const colors = {
+    '売上高': '#3b82f6',
+    '売上総利益': '#d97706',
+    '営業利益': '#000000',
+    '営業利益(本社費用割賦後)': '#7c3aed'
+  };
+
+  ['売上高', '売上総利益', '営業利益', '営業利益(本社費用割賦後)'].forEach(key => {
+    if (actualRows[key]) {
+      const values = actualRows[key].slice(dataColStart, dataColEnd)
+        .map(v => typeof v === 'number' ? Math.round(v / 10000) : 0);
+
+      datasets.push({
+        label: key,
+        data: values,
+        borderColor: colors[key],
+        backgroundColor: 'transparent',
+        borderWidth: 2,
+        tension: 0.4,
+        fill: false,
+        borderDash: []
+      });
+    }
+  });
+
+  new Chart(ctx, {
+    type: 'line',
+    data: { labels, datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'top' },
+        tooltip: {
+          mode: 'index',
+          intersect: false,
+          backgroundColor: 'rgba(0, 0, 0, 0.8)',
+          titleColor: '#fff',
+          bodyColor: '#fff',
+          borderColor: '#ccc',
+          borderWidth: 1,
+          padding: 12,
+          displayColors: true,
+          callbacks: {
+            title: function(context) {
+              return context[0].label;
+            },
+            label: function(context) {
+              const value = context.parsed.y;
+              return context.dataset.label + ': ' + value.toLocaleString() + '万円';
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          grid: {
+            display: true
+          }
+        },
+        y: {
+          beginAtZero: true,
+          ticks: {
+            callback: v => v.toLocaleString() + '万円'
+          },
+          grid: {
+            drawBorder: true,
+            color: ctx => {
+              return ctx.tick.value === 0 ? '#999999' : '#e5e7eb';
+            },
+            lineWidth: ctx => {
+              return ctx.tick.value === 0 ? 3 : 1;
+            }
+          }
+        }
+      }
+    }
+  });
+}
+
+function drawPLChart(container, actualData, budgetData, showBudget = true) {
   const canvas = document.createElement('canvas');
   container.appendChild(canvas);
   const ctx = canvas.getContext('2d');
@@ -176,8 +502,12 @@ function drawPLChart(container, actualData, budgetData) {
     if (!row || !row[0]) return;
     const itemName = String(row[0]).trim();
 
-    if (itemName === '売上総利益') {
+    if (itemName === '売上高合計') {
+      budgetRows['売上高'] = row;
+    } else if (itemName === '売上総利益') {
       budgetRows['売上総利益'] = row;
+    } else if (itemName === '営業利益') {
+      budgetRows['営業利益'] = row;
     }
   });
 
@@ -192,10 +522,15 @@ function drawPLChart(container, actualData, budgetData) {
     if (actualRows[key]) {
       const values = actualRows[key].slice(dataColStart, dataColEnd)
         .map(v => typeof v === 'number' ? Math.round(v / 10000) : 0);
+
+      // 売上総利益の色を濃いオレンジに変更
+      let color = colors[key];
+      if (key === '売上総利益') color = '#d97706';
+
       datasets.push({
         label: key,
         data: values,
-        borderColor: colors[key],
+        borderColor: color,
         backgroundColor: 'transparent',
         borderWidth: 2,
         tension: 0.4,
@@ -205,19 +540,55 @@ function drawPLChart(container, actualData, budgetData) {
     }
   });
 
-  if (budgetRows['売上総利益']) {
-    const values = budgetRows['売上総利益'].slice(dataColStart, dataColEnd)
-      .map(v => typeof v === 'number' ? Math.round(v / 10000) : 0);
-    datasets.push({
-      label: '売上総利益（予算）',
-      data: values,
-      borderColor: '#f59e0b',
-      backgroundColor: 'transparent',
-      borderWidth: 2,
-      tension: 0.4,
-      fill: false,
-      borderDash: [5, 5]
-    });
+  // 予算データを表示する場合のみ追加
+  if (showBudget) {
+    // 売上高の予算を追加（水色の破線）
+    if (budgetRows['売上高']) {
+      const values = budgetRows['売上高'].slice(dataColStart, dataColEnd)
+        .map(v => typeof v === 'number' ? Math.round(v / 10000) : 0);
+      datasets.push({
+        label: '売上高（予算）',
+        data: values,
+        borderColor: '#06b6d4',
+        backgroundColor: 'transparent',
+        borderWidth: 2,
+        tension: 0.4,
+        fill: false,
+        borderDash: [5, 5]
+      });
+    }
+
+    // 売上総利益の予算を追加（薄いオレンジの破線）
+    if (budgetRows['売上総利益']) {
+      const values = budgetRows['売上総利益'].slice(dataColStart, dataColEnd)
+        .map(v => typeof v === 'number' ? Math.round(v / 10000) : 0);
+      datasets.push({
+        label: '売上総利益（予算）',
+        data: values,
+        borderColor: '#fbbf24',
+        backgroundColor: 'transparent',
+        borderWidth: 2,
+        tension: 0.4,
+        fill: false,
+        borderDash: [5, 5]
+      });
+    }
+
+    // 営業利益の予算を追加（グレーの破線）
+    if (budgetRows['営業利益']) {
+      const values = budgetRows['営業利益'].slice(dataColStart, dataColEnd)
+        .map(v => typeof v === 'number' ? Math.round(v / 10000) : 0);
+      datasets.push({
+        label: '営業利益（予算）',
+        data: values,
+        borderColor: '#9ca3af',
+        backgroundColor: 'transparent',
+        borderWidth: 2,
+        tension: 0.4,
+        fill: false,
+        borderDash: [5, 5]
+      });
+    }
   }
 
   new Chart(ctx, {
@@ -227,7 +598,27 @@ function drawPLChart(container, actualData, budgetData) {
       responsive: true,
       maintainAspectRatio: false,
       plugins: {
-        legend: { position: 'top' }
+        legend: { position: 'top' },
+        tooltip: {
+          mode: 'index',
+          intersect: false,
+          backgroundColor: 'rgba(0, 0, 0, 0.8)',
+          titleColor: '#fff',
+          bodyColor: '#fff',
+          borderColor: '#ccc',
+          borderWidth: 1,
+          padding: 12,
+          displayColors: true,
+          callbacks: {
+            title: function(context) {
+              return context[0].label;
+            },
+            label: function(context) {
+              const value = context.parsed.y;
+              return context.dataset.label + ': ' + value.toLocaleString() + '万円';
+            }
+          }
+        }
       },
       scales: {
         x: {
@@ -243,7 +634,7 @@ function drawPLChart(container, actualData, budgetData) {
           grid: {
             drawBorder: true,
             color: ctx => {
-              return ctx.tick.value === 0 ? '#333333' : '#e5e7eb';
+              return ctx.tick.value === 0 ? '#999999' : '#e5e7eb';
             },
             lineWidth: ctx => {
               return ctx.tick.value === 0 ? 3 : 1;
