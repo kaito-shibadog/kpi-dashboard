@@ -8,14 +8,18 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <style>
     body { font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif; }
-    .tab-btn { padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.2s; }
+    .tab-btn { padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; }
     .tab-btn.active { background: #2563eb; color: white; }
-    .tab-btn:not(.active) { color: #666; background: #f0f0f0; hover:bg-gray-200; }
-    .period-btn { padding: 6px 12px; border-radius: 4px; font-size: 12px; cursor: pointer; transition: all 0.2s; }
+    .tab-btn:not(.active) { color: #666; background: #f0f0f0; }
+    .period-btn { padding: 6px 12px; border-radius: 4px; font-size: 12px; cursor: pointer; }
     .period-btn.active { background: #2563eb; color: white; }
     .period-btn:not(.active) { color: #666; background: #e5e7eb; }
     .card { background: white; border-radius: 8px; border: 1px solid #e5e7eb; padding: 16px; margin-bottom: 16px; }
-    .chart-container { position: relative; height: 300px; margin-bottom: 24px; }
+    .chart-container { position: relative; height: 300px; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th, td { border: 1px solid #e5e7eb; padding: 6px; text-align: left; }
+    th { background: #f9fafb; font-weight: 600; }
+    td.num { text-align: right; }
   </style>
 </head>
 <body class="bg-gray-50">
@@ -29,30 +33,26 @@
 
 <main class="max-w-7xl mx-auto px-6 py-6">
 
-  <!-- タブ選択 -->
   <div class="flex gap-3 mb-6 border-b border-gray-200 pb-3">
-    <button class="tab-btn active" data-tab="accounting" onclick="switchTab('accounting', this)">会計</button>
-    <button class="tab-btn" data-tab="indicators" onclick="switchTab('indicators', this)">事業指標</button>
+    <button class="tab-btn active" onclick="switchTab('accounting', this)">会計</button>
+    <button class="tab-btn" onclick="switchTab('indicators', this)">事業指標</button>
   </div>
 
-  <!-- 期間選択 -->
   <div class="mb-6 flex gap-2 flex-wrap">
     <span class="text-sm font-medium text-gray-700 self-center">表示期間:</span>
-    <button class="period-btn active" data-period="all" onclick="setPeriod('all', this)">全期間</button>
-    <button class="period-btn" data-period="q1" onclick="setPeriod('q1', this)">1Q</button>
-    <button class="period-btn" data-period="q2" onclick="setPeriod('q2', this)">2Q</button>
-    <button class="period-btn" data-period="q3" onclick="setPeriod('q3', this)">3Q</button>
-    <button class="period-btn" data-period="q4" onclick="setPeriod('q4', this)">4Q</button>
-    <button class="period-btn" data-period="h1" onclick="setPeriod('h1', this)">前半6ヶ月</button>
-    <button class="period-btn" data-period="h2" onclick="setPeriod('h2', this)">後半6ヶ月</button>
+    <button class="period-btn active" onclick="setPeriod('all', this)">全期間</button>
+    <button class="period-btn" onclick="setPeriod('q1', this)">1Q</button>
+    <button class="period-btn" onclick="setPeriod('q2', this)">2Q</button>
+    <button class="period-btn" onclick="setPeriod('q3', this)">3Q</button>
+    <button class="period-btn" onclick="setPeriod('q4', this)">4Q</button>
+    <button class="period-btn" onclick="setPeriod('h1', this)">前半6ヶ月</button>
+    <button class="period-btn" onclick="setPeriod('h2', this)">後半6ヶ月</button>
   </div>
 
-  <!-- 会計タブ -->
   <div id="accounting-tab">
     <div id="accounting-content"></div>
   </div>
 
-  <!-- 事業指標タブ -->
   <div id="indicators-tab" class="hidden">
     <div id="indicators-content"></div>
   </div>
@@ -63,35 +63,31 @@
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbwQuOms-1VzT11Gilbsbo93FAEekgoZkKS4NnHTzHwMisbh7v9Eq5r-o-aMN4Itbt4-ZA/exec';
 let allData = {};
 let currentPeriod = 'all';
+let chartInstances = {};
 
-// ============================================================
-// 初期化
-// ============================================================
 async function init() {
   try {
-    const response = await fetch(GAS_URL);
+    const response = await fetch(GAS_URL, { mode: 'cors' });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
     const data = await response.json();
     allData = data;
 
-    // 最終更新時刻を表示
-    document.getElementById('last-updated').textContent =
-      `最終更新: ${new Date(data.updatedAt).toLocaleString('ja-JP')}`;
+    if (data.updatedAt) {
+      document.getElementById('last-updated').textContent =
+        `最終更新: ${new Date(data.updatedAt).toLocaleString('ja-JP')}`;
+    }
 
     renderAccounting();
   } catch (err) {
-    console.error('Error loading data:', err);
     document.getElementById('accounting-content').innerHTML =
-      `<div class="text-red-600">データ読み込みエラー: ${err.message}</div>`;
+      `<div class="text-red-600">エラー: ${err.message}</div>`;
   }
 }
 
-// ============================================================
-// タブ切り替え
-// ============================================================
 function switchTab(tab, btn) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
-
   document.getElementById('accounting-tab').classList.add('hidden');
   document.getElementById('indicators-tab').classList.add('hidden');
 
@@ -104,9 +100,6 @@ function switchTab(tab, btn) {
   }
 }
 
-// ============================================================
-// 期間選択
-// ============================================================
 function setPeriod(period, btn) {
   currentPeriod = period;
   document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
@@ -119,169 +112,86 @@ function setPeriod(period, btn) {
   }
 }
 
-// ============================================================
-// 期間に応じた月インデックスを取得
-// ============================================================
-function getMonthRange(months) {
-  const total = months.length;
-  switch (currentPeriod) {
-    case 'q1': return [0, 2];
-    case 'q2': return [3, 5];
-    case 'q3': return [6, 8];
-    case 'q4': return [9, 11];
-    case 'h1': return [0, 5];
-    case 'h2': return [6, 11];
-    default: return [0, total - 1];
-  }
-}
-
-// ============================================================
-// 会計タブのレンダリング
-// ============================================================
 function renderAccounting() {
   const container = document.getElementById('accounting-content');
   container.innerHTML = '';
 
-  const plData = allData.sheets?.['全社PL(見込+実績)'];
-  if (!plData || plData.error) {
-    container.innerHTML = '<div class="text-red-600">会計データが見つかりません</div>';
-    return;
-  }
+  const sheetNames = ['全社PL(見込+実績)', '全社PL(予算)', 'CF(見込+実績)', '直接雇用PL(見込+実績)', '派遣PL(見込+実績)', '業種別支援人数'];
 
-  // 簡易的な表示（実装は段階的に）
-  const card = document.createElement('div');
-  card.className = 'card';
-  card.innerHTML = `
-    <h2 class="text-lg font-semibold mb-4">月次P&L推移</h2>
-    <div class="chart-container">
-      <canvas id="pl-chart"></canvas>
-    </div>
-  `;
-  container.appendChild(card);
+  sheetNames.forEach((name, idx) => {
+    const sheetData = allData.sheets?.[name];
+    if (!sheetData || sheetData.error || !Array.isArray(sheetData.data)) return;
 
-  // グラフを描画
-  setTimeout(() => {
-    renderPLChart(plData);
-  }, 100);
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.innerHTML = `<h2 class="text-lg font-semibold mb-4">${name}</h2>`;
+
+    const rawData = sheetData.data;
+    if (rawData.length < 2) return;
+
+    const chartContainer = document.createElement('div');
+    chartContainer.className = 'chart-container';
+    chartContainer.id = `chart-${idx}`;
+    card.appendChild(chartContainer);
+
+    container.appendChild(card);
+
+    setTimeout(() => {
+      renderChart(chartContainer, name, rawData);
+    }, 100);
+  });
 }
 
-// ============================================================
-// P&Lグラフ
-// ============================================================
-function renderPLChart(plData) {
-  const ctx = document.getElementById('pl-chart')?.getContext('2d');
-  if (!ctx) return;
+function renderChart(container, title, rawData) {
+  const canvas = document.createElement('canvas');
+  container.appendChild(canvas);
+  const ctx = canvas.getContext('2d');
 
-  const [startIdx, endIdx] = getMonthRange(plData.months);
-  const displayMonths = plData.months.slice(startIdx, endIdx + 1);
+  const headers = rawData[0];
+  const colStart = 2;
+  const labels = headers.slice(colStart).filter(h => h && h !== '合計' && !h.includes('その他'));
 
   const datasets = [];
-  const colors = ['#3b82f6', '#10b981', '#f59e0b'];
+  const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'];
 
-  plData.rows.forEach((row, idx) => {
-    if (idx < 3) {
-      datasets.push({
-        label: row.item,
-        data: row.values.slice(startIdx, endIdx + 1),
-        borderColor: colors[idx],
-        backgroundColor: colors[idx] + '20',
-        borderWidth: 2,
-        tension: 0.4
-      });
-    }
-  });
+  for (let i = 1; i < Math.min(rawData.length, 6); i++) {
+    const row = rawData[i];
+    const label = row[1] || row[0];
+    const values = row.slice(colStart, colStart + labels.length)
+      .map(v => typeof v === 'number' ? v : 0);
+
+    datasets.push({
+      label: label,
+      data: values,
+      borderColor: colors[i - 1],
+      backgroundColor: colors[i - 1] + '20',
+      borderWidth: 2,
+      tension: 0.4
+    });
+  }
 
   new Chart(ctx, {
     type: 'line',
-    data: {
-      labels: displayMonths,
-      datasets: datasets
-    },
+    data: { labels, datasets },
     options: {
       responsive: true,
       maintainAspectRatio: false,
       plugins: { legend: { position: 'top' } },
-      scales: {
-        y: { beginAtZero: true }
-      }
+      scales: { y: { beginAtZero: true } }
     }
   });
 }
 
-// ============================================================
-// 事業指標タブのレンダリング
-// ============================================================
 function renderIndicators() {
   const container = document.getElementById('indicators-content');
-  container.innerHTML = '';
-
-  const supportData = allData.sheets?.['業種別支援人数'];
-  if (!supportData || supportData.error) {
-    container.innerHTML = '<div class="text-red-600">事業指標データが見つかりません</div>';
-    return;
-  }
-
-  const card = document.createElement('div');
-  card.className = 'card';
-  card.innerHTML = `
-    <h2 class="text-lg font-semibold mb-4">業種別支援人数推移</h2>
-    <div class="chart-container">
-      <canvas id="support-chart"></canvas>
-    </div>
-  `;
-  container.appendChild(card);
-
-  setTimeout(() => {
-    renderSupportChart(supportData);
-  }, 100);
+  container.innerHTML = '<div class="text-gray-600">事業指標タブ準備中</div>';
 }
 
-// ============================================================
-// 業種別支援人数グラフ
-// ============================================================
-function renderSupportChart(supportData) {
-  const ctx = document.getElementById('support-chart')?.getContext('2d');
-  if (!ctx) return;
-
-  const [startIdx, endIdx] = getMonthRange(supportData.months);
-  const displayMonths = supportData.months.slice(startIdx, endIdx + 1);
-
-  const datasets = [];
-  const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
-
-  (supportData.rows || []).forEach((row, idx) => {
-    if (idx < 5) {
-      datasets.push({
-        label: row.category || `業種${idx + 1}`,
-        data: row.values.slice(startIdx, endIdx + 1),
-        borderColor: colors[idx],
-        backgroundColor: colors[idx],
-        borderWidth: 0
-      });
-    }
-  });
-
-  new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels: displayMonths,
-      datasets: datasets
-    },
-    options: {
-      indexAxis: 'y',
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: { legend: { position: 'right' } },
-      scales: {
-        x: { stacked: true },
-        y: { stacked: true }
-      }
-    }
-  });
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', init);
+} else {
+  init();
 }
-
-// 初期化
-document.addEventListener('DOMContentLoaded', init);
 </script>
 
 </body>
