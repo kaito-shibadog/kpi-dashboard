@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>経営ダッシュボード</title>
+  <title>経営ダッシュボード v2</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <style>
@@ -15,11 +15,11 @@
     .period-btn.active { background: #2563eb; color: white; }
     .period-btn:not(.active) { color: #666; background: #e5e7eb; }
     .card { background: white; border-radius: 8px; border: 1px solid #e5e7eb; padding: 16px; margin-bottom: 16px; }
-    .chart-container { position: relative; height: 300px; }
-    table { width: 100%; border-collapse: collapse; font-size: 12px; }
-    th, td { border: 1px solid #e5e7eb; padding: 6px; text-align: left; }
+    .chart-container { position: relative; height: 350px; margin-bottom: 24px; }
+    table { width: 100%; border-collapse: collapse; font-size: 11px; margin-top: 16px; }
+    th, td { border: 1px solid #e5e7eb; padding: 6px; text-align: right; }
     th { background: #f9fafb; font-weight: 600; }
-    td.num { text-align: right; }
+    td:first-child, th:first-child { text-align: left; }
   </style>
 </head>
 <body class="bg-gray-50">
@@ -63,7 +63,6 @@
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbwQuOms-1VzT11Gilbsbo93FAEekgoZkKS4NnHTzHwMisbh7v9Eq5r-o-aMN4Itbt4-ZA/exec';
 let allData = {};
 let currentPeriod = 'all';
-let chartInstances = {};
 
 async function init() {
   try {
@@ -115,58 +114,103 @@ function setPeriod(period, btn) {
 function renderAccounting() {
   const container = document.getElementById('accounting-content');
   container.innerHTML = '';
-
-  const sheetNames = ['全社PL(見込+実績)', '全社PL(予算)', 'CF(見込+実績)', '直接雇用PL(見込+実績)', '派遣PL(見込+実績)', '業種別支援人数'];
-
-  sheetNames.forEach((name, idx) => {
-    const sheetData = allData.sheets?.[name];
-    if (!sheetData || sheetData.error || !Array.isArray(sheetData.data)) return;
-
-    const card = document.createElement('div');
-    card.className = 'card';
-    card.innerHTML = `<h2 class="text-lg font-semibold mb-4">${name}</h2>`;
-
-    const rawData = sheetData.data;
-    if (rawData.length < 2) return;
-
-    const chartContainer = document.createElement('div');
-    chartContainer.className = 'chart-container';
-    chartContainer.id = `chart-${idx}`;
-    card.appendChild(chartContainer);
-
-    container.appendChild(card);
-
-    setTimeout(() => {
-      renderChart(chartContainer, name, rawData);
-    }, 100);
-  });
+  renderPLChart(container);
 }
 
-function renderChart(container, title, rawData) {
+function renderPLChart(container) {
+  const actualSheet = allData.sheets?.['全社PL(見込+実績)'];
+  const budgetSheet = allData.sheets?.['全社PL(予算)'];
+
+  if (!actualSheet || !budgetSheet || !Array.isArray(actualSheet.data)) {
+    container.innerHTML = '<div class="text-red-600">データが見つかりません</div>';
+    return;
+  }
+
+  const card = document.createElement('div');
+  card.className = 'card';
+  card.innerHTML = '<h2 class="text-lg font-semibold mb-4">全社PL推移（月次）</h2>';
+
+  const chartContainer = document.createElement('div');
+  chartContainer.className = 'chart-container';
+  chartContainer.id = 'pl-chart-container';
+  card.appendChild(chartContainer);
+
+  container.appendChild(card);
+
+  setTimeout(() => {
+    drawPLChart(chartContainer, actualSheet.data, budgetSheet.data);
+  }, 100);
+}
+
+function drawPLChart(container, actualData, budgetData) {
   const canvas = document.createElement('canvas');
   container.appendChild(canvas);
   const ctx = canvas.getContext('2d');
 
-  const headers = rawData[0];
+  const headers = actualData[0];
   const colStart = 2;
-  const labels = headers.slice(colStart).filter(h => h && h !== '合計' && !h.includes('その他'));
+  const labels = headers.slice(colStart, colStart + 12).filter(h => h && h !== '合計' && !h.includes('その他'));
+
+  const actualRows = {};
+  actualData.forEach(row => {
+    if (!row || !row[0]) return;
+    const itemName = String(row[0]).trim();
+
+    if (itemName === '売上高合計') {
+      actualRows['売上高'] = row;
+    } else if (itemName === '売上総利益') {
+      actualRows['売上総利益'] = row;
+    } else if (itemName === '営業利益') {
+      actualRows['営業利益'] = row;
+    }
+  });
+
+  const budgetRows = {};
+  budgetData.forEach(row => {
+    if (!row || !row[0]) return;
+    const itemName = String(row[0]).trim();
+
+    if (itemName === '売上総利益') {
+      budgetRows['売上総利益'] = row;
+    }
+  });
 
   const datasets = [];
-  const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'];
+  const colors = {
+    '売上高': '#3b82f6',
+    '売上総利益': '#10b981',
+    '営業利益': '#000000'
+  };
 
-  for (let i = 1; i < Math.min(rawData.length, 6); i++) {
-    const row = rawData[i];
-    const label = row[1] || row[0];
-    const values = row.slice(colStart, colStart + labels.length)
-      .map(v => typeof v === 'number' ? v : 0);
+  ['売上高', '売上総利益', '営業利益'].forEach(key => {
+    if (actualRows[key]) {
+      const values = actualRows[key].slice(colStart, colStart + 12)
+        .map(v => typeof v === 'number' ? Math.round(v / 10000) : 0);
+      datasets.push({
+        label: key,
+        data: values,
+        borderColor: colors[key],
+        backgroundColor: 'transparent',
+        borderWidth: 2,
+        tension: 0.4,
+        fill: false,
+        borderDash: []
+      });
+    }
+  });
 
+  if (budgetRows['売上総利益']) {
+    const values = budgetRows['売上総利益'].slice(colStart, colStart + 12)
+      .map(v => typeof v === 'number' ? Math.round(v / 10000) : 0);
     datasets.push({
-      label: label,
+      label: '売上総利益（予算）',
       data: values,
-      borderColor: colors[i - 1],
-      backgroundColor: colors[i - 1] + '20',
+      borderColor: '#f59e0b',
+      backgroundColor: 'transparent',
       borderWidth: 2,
-      tension: 0.4
+      tension: 0.4,
+      fill: false,
+      borderDash: [5, 5]
     });
   }
 
@@ -176,8 +220,17 @@ function renderChart(container, title, rawData) {
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      plugins: { legend: { position: 'top' } },
-      scales: { y: { beginAtZero: true } }
+      plugins: {
+        legend: { position: 'top' }
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          ticks: {
+            callback: v => v.toLocaleString() + '万円'
+          }
+        }
+      }
     }
   });
 }
