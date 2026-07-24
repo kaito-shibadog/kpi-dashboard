@@ -26,7 +26,7 @@
 
 <header class="bg-white border-b border-gray-200 sticky top-0 z-50">
   <div class="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
-    <h1 class="text-xl font-bold text-gray-900">経営ダッシュボード</h1>
+    <h1 class="text-xl font-bold text-gray-900">経営ダッシュボード (25年11月〜26年10月)</h1>
     <div class="text-xs text-gray-500" id="last-updated"></div>
   </div>
 </header>
@@ -145,13 +145,16 @@ function renderPLChart(container) {
   checkboxLabel.style.display = 'flex';
   checkboxLabel.style.alignItems = 'center';
   checkboxLabel.style.gap = '6px';
-  checkboxLabel.style.fontSize = '12px';
+  checkboxLabel.style.fontSize = '14px';
   checkboxLabel.style.cursor = 'pointer';
 
   const checkbox = document.createElement('input');
   checkbox.type = 'checkbox';
   checkbox.checked = true;
   checkbox.id = 'budget-toggle';
+  checkbox.style.width = '18px';
+  checkbox.style.height = '18px';
+  checkbox.style.cursor = 'pointer';
 
   checkboxLabel.appendChild(checkbox);
   checkboxLabel.appendChild(document.createTextNode('予算を表示'));
@@ -253,6 +256,9 @@ function renderPLChart(container) {
   setTimeout(() => {
     drawPLChart(chartContainer, actualSheet.data, budgetSheet.data);
   }, 100);
+
+  // CF セクション
+  renderCFChart(container);
 
   // 直接雇用事業PL
   renderBusinessPLChart(container, '直接雇用PL(見込+実績)', '直接雇用事業PL推移（月次）');
@@ -656,6 +662,180 @@ function getPeriodRange(totalMonths) {
     case 'h2': return [6, 11];     // 5月-10月
     default: return [0, totalMonths - 1];  // 全期間
   }
+}
+
+function renderCFChart(container) {
+  const sheet = allData.sheets?.['CF(見込+実績)'];
+
+  if (!sheet || !Array.isArray(sheet.data)) {
+    return;
+  }
+
+  // データ抽出
+  let cashRow = null;
+  let burnRow = null;
+  let runwayRow = null;
+
+  sheet.data.forEach(row => {
+    if (!row || !row[0]) return;
+    const itemName = String(row[0]).trim();
+    if (itemName === '現預金残高') cashRow = row;
+    else if (itemName === 'バーンレート') burnRow = row;
+    else if (itemName === '月末時点ランウェイ') runwayRow = row;
+  });
+
+  if (!cashRow || !burnRow || !runwayRow) {
+    return;
+  }
+
+  // グラフカード
+  const chartCard = document.createElement('div');
+  chartCard.className = 'card';
+  chartCard.innerHTML = '<h2 class="text-lg font-semibold mb-4">キャッシュフロー推移</h2>';
+
+  const chartContainer = document.createElement('div');
+  chartContainer.className = 'chart-container';
+  chartContainer.id = 'cf-chart-container';
+  chartCard.appendChild(chartContainer);
+
+  container.appendChild(chartCard);
+
+  // メトリクスカード
+  const metricsCard = document.createElement('div');
+  metricsCard.className = 'card';
+  metricsCard.style.display = 'grid';
+  metricsCard.style.gridTemplateColumns = '1fr 1fr';
+  metricsCard.style.gap = '24px';
+
+  // 進行月は J列（7月）（インデックス 9）
+  const latestBurn = burnRow[9] || 0;
+  const latestRunway = runwayRow[9] || 0;
+
+  const burnMetric = document.createElement('div');
+  burnMetric.style.padding = '16px';
+  burnMetric.style.border = '1px solid #e5e7eb';
+  burnMetric.style.borderRadius = '6px';
+  burnMetric.innerHTML = `
+    <div style="font-size: 12px; color: #666; margin-bottom: 4px;">バーンレート（進行月）</div>
+    <div style="font-size: 24px; font-weight: bold; color: #000;">
+      ${(latestBurn / 10000).toLocaleString('ja-JP', {minimumFractionDigits: 1, maximumFractionDigits: 1})}
+      <span style="font-size: 14px; color: #666;">万円/月</span>
+    </div>
+  `;
+
+  const runwayMetric = document.createElement('div');
+  runwayMetric.style.padding = '16px';
+  runwayMetric.style.border = '1px solid #e5e7eb';
+  runwayMetric.style.borderRadius = '6px';
+  runwayMetric.innerHTML = `
+    <div style="font-size: 12px; color: #666; margin-bottom: 4px;">ランウェイ（進行月）</div>
+    <div style="font-size: 24px; font-weight: bold; color: #000;">
+      ${(typeof latestRunway === 'number' ? latestRunway : 0).toLocaleString('ja-JP', {minimumFractionDigits: 1, maximumFractionDigits: 1})}
+      <span style="font-size: 14px; color: #666;">ヶ月</span>
+    </div>
+  `;
+
+  metricsCard.appendChild(burnMetric);
+  metricsCard.appendChild(runwayMetric);
+
+  container.appendChild(metricsCard);
+
+  // バーンレート説明用注釈
+  const burnNoteDiv = document.createElement('div');
+  burnNoteDiv.style.padding = '12px 16px';
+  burnNoteDiv.style.backgroundColor = '#f9fafb';
+  burnNoteDiv.style.borderRadius = '6px';
+  burnNoteDiv.style.fontSize = '12px';
+  burnNoteDiv.style.lineHeight = '1.6';
+  burnNoteDiv.style.color = '#333';
+  burnNoteDiv.style.marginTop = '12px';
+  burnNoteDiv.innerHTML = `
+    上記のバーンレートおよびランウェイは<br>
+    <br>
+    <strong>定常キャッシュイン-定常キャッシュアウト-投資CF-財務CF</strong><br>
+    <br>
+    にて計算したもので、人材紹介の売上やスポットの経費は含まず<br>
+    実際の現預金推移の見通しは上記グラフとなる。
+  `;
+  container.appendChild(burnNoteDiv);
+
+  setTimeout(() => {
+    drawCFChart(chartContainer, cashRow);
+
+    // 注釈を追加
+    const noteDiv = document.createElement('div');
+    noteDiv.style.fontSize = '12px';
+    noteDiv.style.color = '#666';
+    noteDiv.style.marginTop = '12px';
+    noteDiv.textContent = '※上記金額のうち3,000万円は預金担保見合いの短期借入となる。';
+    chartCard.appendChild(noteDiv);
+  }, 100);
+}
+
+function drawCFChart(container, cashRow) {
+  const canvas = document.createElement('canvas');
+  container.appendChild(canvas);
+  const ctx = canvas.getContext('2d');
+
+  const allLabels = ['11月', '12月', '1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月'];
+  const allValues = cashRow.slice(1, 13).map(v => typeof v === 'number' ? Math.round(v / 10000) : 0);
+
+  // 期間に応じたデータ範囲を決定
+  const [startIdx, endIdx] = getPeriodRange(allLabels.length);
+  const labels = allLabels.slice(startIdx, endIdx + 1);
+  const values = allValues.slice(startIdx, endIdx + 1);
+
+  new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: '現預金残高',
+        data: values,
+        borderColor: '#3b82f6',
+        backgroundColor: 'rgba(59, 130, 246, 0.05)',
+        borderWidth: 2,
+        tension: 0.4,
+        fill: true
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'top' },
+        tooltip: {
+          mode: 'index',
+          intersect: false,
+          backgroundColor: 'rgba(0, 0, 0, 0.8)',
+          titleColor: '#fff',
+          bodyColor: '#fff',
+          borderColor: '#ccc',
+          borderWidth: 1,
+          padding: 12,
+          callbacks: {
+            label: function(context) {
+              const value = context.parsed.y;
+              return context.dataset.label + ': ' + value.toLocaleString() + '万円';
+            }
+          }
+        }
+      },
+      scales: {
+        x: { grid: { display: true } },
+        y: {
+          beginAtZero: true,
+          ticks: {
+            callback: v => v.toLocaleString() + '万円'
+          },
+          grid: {
+            drawBorder: true,
+            color: '#e5e7eb'
+          }
+        }
+      }
+    }
+  });
 }
 
 function renderIndicators() {
