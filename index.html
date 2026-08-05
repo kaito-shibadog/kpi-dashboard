@@ -8,802 +8,272 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <style>
     body { font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif; }
-    .tab-btn { padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; }
+    .tab-btn { padding: 10px 18px; border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.2s; }
     .tab-btn.active { background: #2563eb; color: white; }
     .tab-btn:not(.active) { color: #666; background: #f0f0f0; }
-    .period-btn { padding: 6px 12px; border-radius: 4px; font-size: 12px; cursor: pointer; }
-    .period-btn.active { background: #2563eb; color: white; }
-    .period-btn:not(.active) { color: #666; background: #e5e7eb; }
+    .tab-btn:hover { background: #e5e7eb; }
     .card { background: white; border-radius: 8px; border: 1px solid #e5e7eb; padding: 16px; margin-bottom: 16px; }
-    .chart-container { position: relative; height: 500px; margin-bottom: 24px; }
-    table { width: 100%; border-collapse: collapse; font-size: 11px; margin-top: 16px; }
-    th, td { border: 1px solid #e5e7eb; padding: 6px; text-align: right; }
+    .card-title { font-size: 14px; font-weight: 600; margin-bottom: 12px; color: #1f2937; }
+    .chart-container { position: relative; height: 400px; margin-bottom: 24px; }
+    .table-container { overflow-x: auto; margin-top: 16px; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th, td { border: 1px solid #e5e7eb; padding: 8px; text-align: right; }
     th { background: #f9fafb; font-weight: 600; }
     td:first-child, th:first-child { text-align: left; }
+    .error { background: #fee2e2; border: 1px solid #fca5a5; color: #991b1b; padding: 12px; border-radius: 6px; }
+    .loading { text-align: center; padding: 20px; color: #999; }
   </style>
 </head>
 <body class="bg-gray-50">
 
 <header class="bg-white border-b border-gray-200 sticky top-0 z-50">
   <div class="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
-    <h1 class="text-xl font-bold text-gray-900">経営ダッシュボード (25年11月〜26年10月)</h1>
+    <h1 class="text-xl font-bold text-gray-900">経営ダッシュボード (FY25: 11月〜FY26: 10月)</h1>
     <div class="text-xs text-gray-500" id="last-updated"></div>
   </div>
 </header>
 
 <main class="max-w-7xl mx-auto px-6 py-6">
 
-  <div class="flex gap-3 mb-6 border-b border-gray-200 pb-3">
+  <!-- Tab Navigation -->
+  <div class="flex gap-3 mb-6 border-b border-gray-200 pb-3 overflow-x-auto">
     <button class="tab-btn active" onclick="switchTab('accounting', this)">会計</button>
     <button class="tab-btn" onclick="switchTab('indicators', this)">事業指標</button>
     <button class="tab-btn" onclick="switchTab('comparison', this)">昨対比</button>
+    <button class="tab-btn" onclick="switchTab('pipeline', this)">パイプライン</button>
   </div>
 
-  <div class="mb-6 flex gap-2 flex-wrap">
-    <span class="text-sm font-medium text-gray-700 self-center">表示期間:</span>
-    <button class="period-btn active" onclick="setPeriod('all', this)">全期間</button>
-    <button class="period-btn" onclick="setPeriod('q1', this)">1Q</button>
-    <button class="period-btn" onclick="setPeriod('q2', this)">2Q</button>
-    <button class="period-btn" onclick="setPeriod('q3', this)">3Q</button>
-    <button class="period-btn" onclick="setPeriod('q4', this)">4Q</button>
-    <button class="period-btn" onclick="setPeriod('h1', this)">前半6ヶ月</button>
-    <button class="period-btn" onclick="setPeriod('h2', this)">後半6ヶ月</button>
-  </div>
-
+  <!-- 会計タブ -->
   <div id="accounting-tab">
-    <div id="accounting-content"></div>
+    <div id="accounting-content" class="loading">読み込み中...</div>
   </div>
 
+  <!-- 事業指標タブ -->
   <div id="indicators-tab" class="hidden">
-    <div id="indicators-content"></div>
+    <div id="indicators-content" class="loading">読み込み中...</div>
   </div>
 
+  <!-- 昨対比タブ -->
   <div id="comparison-tab" class="hidden">
-    <div id="comparison-content"></div>
+    <div id="comparison-content" class="loading">読み込み中...</div>
+  </div>
+
+  <!-- パイプラインタブ -->
+  <div id="pipeline-tab" class="hidden">
+    <div id="pipeline-content" class="loading">読み込み中...</div>
   </div>
 
 </main>
 
 <script>
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbwQuOms-1VzT11Gilbsbo93FAEekgoZkKS4NnHTzHwMisbh7v9Eq5r-o-aMN4Itbt4-ZA/exec';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbxyZJ7ZibLmyO3aXRbS5z8SSDA0P_TktL4694SEdX21g4xyyy9zY0MlSMoirJmgqQj01A/exec';
+
 let allData = {};
-let currentPeriod = 'all';
+const chartInstances = {}; // Chart.js instances
 
 async function init() {
   try {
+    console.log('Fetching data from GAS...');
     const response = await fetch(GAS_URL, { mode: 'cors' });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
-    const data = await response.json();
-    allData = data;
+    allData = await response.json();
+    console.log('Data loaded:', allData);
 
-    if (data.updatedAt) {
+    if (allData.error) {
+      showError('GAS Error: ' + allData.error);
+      return;
+    }
+
+    if (allData.updatedAt) {
       document.getElementById('last-updated').textContent =
-        `最終更新: ${new Date(data.updatedAt).toLocaleString('ja-JP')}`;
+        `最終更新: ${new Date(allData.updatedAt).toLocaleString('ja-JP')}`;
     }
 
     renderAccounting();
   } catch (err) {
-    document.getElementById('accounting-content').innerHTML =
-      `<div class="text-red-600">エラー: ${err.message}</div>`;
+    console.error('Init error:', err);
+    showError(`エラー: ${err.message}`);
   }
 }
 
+function showError(msg) {
+  document.getElementById('accounting-content').innerHTML = `<div class="error">${msg}</div>`;
+}
+
+// ============================================================
+// TAB SWITCHING
+// ============================================================
 function switchTab(tab, btn) {
-  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
+  // Hide all tabs
   document.getElementById('accounting-tab').classList.add('hidden');
   document.getElementById('indicators-tab').classList.add('hidden');
   document.getElementById('comparison-tab').classList.add('hidden');
+  document.getElementById('pipeline-tab').classList.add('hidden');
 
-  if (tab === 'accounting') {
-    document.getElementById('accounting-tab').classList.remove('hidden');
-    renderAccounting();
-  } else if (tab === 'indicators') {
-    document.getElementById('indicators-tab').classList.remove('hidden');
-    renderIndicators();
-  } else if (tab === 'comparison') {
-    document.getElementById('comparison-tab').classList.remove('hidden');
-    renderComparison();
-  }
-}
+  // Remove active from all buttons
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
 
-function setPeriod(period, btn) {
-  currentPeriod = period;
-  document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
+  // Show selected tab & button
   btn.classList.add('active');
+  document.getElementById(tab + '-tab').classList.remove('hidden');
 
-  if (!document.getElementById('accounting-tab').classList.contains('hidden')) {
-    renderAccounting();
-  } else {
-    renderIndicators();
-  }
+  // Render content
+  if (tab === 'accounting') renderAccounting();
+  else if (tab === 'indicators') renderIndicators();
+  else if (tab === 'comparison') renderComparison();
+  else if (tab === 'pipeline') renderPipeline();
 }
 
+// ============================================================
+// 会計タブ
+// ============================================================
 function renderAccounting() {
-  const container = document.getElementById('accounting-content');
-  container.innerHTML = '';
-  renderPLChart(container);
-}
+  const sheets = allData.sheets || {};
+  let html = '';
 
-function renderPLChart(container) {
-  const actualSheet = allData.sheets?.['全社PL(見込+実績)'];
-  const budgetSheet = allData.sheets?.['全社PL(予算)'];
+  // PL月次推移
+  html += '<div class="card">';
+  html += '<div class="card-title">PL月次推移（実績 vs 予算）</div>';
+  html += renderPLComparison(sheets.PL_actual, sheets.PL_budget);
+  html += '</div>';
 
-  if (!actualSheet || !budgetSheet || !Array.isArray(actualSheet.data)) {
-    container.innerHTML = '<div class="text-red-600">データが見つかりません</div>';
-    return;
-  }
+  // CF推移
+  html += '<div class="card">';
+  html += '<div class="card-title">CF推移・バーンレート・ランウェイ</div>';
+  html += renderCFChart(sheets.CF);
+  html += '</div>';
 
-  // グラフカード
-  const chartCard = document.createElement('div');
-  chartCard.className = 'card';
+  // 直接雇用PL
+  html += '<div class="card">';
+  html += '<div class="card-title">直接雇用部門PL月次推移</div>';
+  html += renderSegmentPLChart(sheets.PL_direct);
+  html += '</div>';
 
-  const titleDiv = document.createElement('div');
-  titleDiv.style.display = 'flex';
-  titleDiv.style.justifyContent = 'space-between';
-  titleDiv.style.alignItems = 'center';
-  titleDiv.style.marginBottom = '16px';
+  // 派遣PL
+  html += '<div class="card">';
+  html += '<div class="card-title">派遣部門PL月次推移</div>';
+  html += renderSegmentPLChart(sheets.PL_dispatch);
+  html += '</div>';
 
-  const titleH2 = document.createElement('h2');
-  titleH2.className = 'text-lg font-semibold';
-  titleH2.textContent = '全社PL推移（月次）';
-  titleDiv.appendChild(titleH2);
+  document.getElementById('accounting-content').innerHTML = html;
 
-  const checkboxLabel = document.createElement('label');
-  checkboxLabel.style.display = 'flex';
-  checkboxLabel.style.alignItems = 'center';
-  checkboxLabel.style.gap = '6px';
-  checkboxLabel.style.fontSize = '14px';
-  checkboxLabel.style.cursor = 'pointer';
-
-  const checkbox = document.createElement('input');
-  checkbox.type = 'checkbox';
-  checkbox.checked = true;
-  checkbox.id = 'budget-toggle';
-  checkbox.style.width = '18px';
-  checkbox.style.height = '18px';
-  checkbox.style.cursor = 'pointer';
-
-  checkboxLabel.appendChild(checkbox);
-  checkboxLabel.appendChild(document.createTextNode('予算を表示'));
-  titleDiv.appendChild(checkboxLabel);
-
-  chartCard.appendChild(titleDiv);
-
-  const chartContainer = document.createElement('div');
-  chartContainer.className = 'chart-container';
-  chartContainer.id = 'pl-chart-container';
-  chartCard.appendChild(chartContainer);
-
-  container.appendChild(chartCard);
-
-  // チェックボックスのイベント
-  checkbox.addEventListener('change', () => {
-    chartContainer.innerHTML = '';
-    drawPLChart(chartContainer, actualSheet.data, budgetSheet.data, checkbox.checked);
-  });
-
-  // テーブルカード
-  const tableCard = document.createElement('div');
-  tableCard.className = 'card';
-  tableCard.innerHTML = '<h2 class="text-lg font-semibold mb-4">全社PL明細</h2>';
-
-  const table = document.createElement('table');
-  table.className = 'w-full border-collapse text-xs';
-  table.style.marginBottom = '0';
-
-  // ヘッダー
-  const headers = ['項目', '11月', '12月', '1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月'];
-  const thead = document.createElement('thead');
-  const headerRow = document.createElement('tr');
-  headerRow.style.borderBottom = '2px solid #d1d5db';
-  headers.forEach(h => {
-    const th = document.createElement('th');
-    th.textContent = h;
-    th.style.padding = '6px';
-    th.style.fontWeight = '600';
-    th.style.background = '#f9fafb';
-    th.style.textAlign = h === '項目' ? 'left' : 'right';
-    headerRow.appendChild(th);
-  });
-  thead.appendChild(headerRow);
-  table.appendChild(thead);
-
-  // データ取得
-  const actualRows = {};
-  const budgetRows = {};
-
-  actualSheet.data.forEach(row => {
-    if (!row || !row[0]) return;
-    const itemName = String(row[0]).trim();
-    if (itemName === '売上高合計') actualRows['売上高'] = row;
-    else if (itemName === '売上総利益') actualRows['売上総利益'] = row;
-    else if (itemName === '営業利益') actualRows['営業利益'] = row;
-  });
-
-  budgetSheet.data.forEach(row => {
-    if (!row || !row[0]) return;
-    const itemName = String(row[0]).trim();
-    if (itemName === '売上総利益') budgetRows['売上総利益'] = row;
-    else if (itemName === '営業利益') budgetRows['営業利益'] = row;
-  });
-
-  const tbody = document.createElement('tbody');
-  const items = ['売上高', '売上総利益', '営業利益'];
-
-  items.forEach(item => {
-    const actualRow = actualRows[item];
-    if (!actualRow) return;
-
-    const tr = document.createElement('tr');
-    tr.style.borderBottom = '1px solid #e5e7eb';
-
-    const itemCell = document.createElement('td');
-    itemCell.textContent = item;
-    itemCell.style.padding = '6px';
-    itemCell.style.textAlign = 'left';
-    itemCell.style.fontWeight = '500';
-    tr.appendChild(itemCell);
-
-    for (let i = 2; i < 14; i++) {
-      const td = document.createElement('td');
-      const value = actualRow[i] || 0;
-      td.textContent = (value / 10000).toLocaleString('ja-JP', {minimumFractionDigits: 0, maximumFractionDigits: 0});
-      td.style.padding = '6px';
-      td.style.textAlign = 'right';
-      tr.appendChild(td);
-    }
-
-    tbody.appendChild(tr);
-  });
-
-  table.appendChild(tbody);
-  tableCard.appendChild(table);
-  container.appendChild(tableCard);
-
+  // Initialize charts
   setTimeout(() => {
-    drawPLChart(chartContainer, actualSheet.data, budgetSheet.data);
-  }, 100);
-
-  // CF セクション
-  renderCFChart(container);
-
-  // 直接雇用事業PL
-  renderBusinessPLChart(container, '直接雇用PL(見込+実績)', '直接雇用事業PL推移（月次）');
-
-  // 派遣事業PL
-  renderBusinessPLChart(container, '派遣PL(見込+実績)', '派遣事業PL推移（月次）');
-}
-
-function renderBusinessPLChart(container, sheetName, title) {
-  const sheet = allData.sheets?.[sheetName];
-
-  if (!sheet || !Array.isArray(sheet.data)) {
-    return;
-  }
-
-  // グラフカード
-  const chartCard = document.createElement('div');
-  chartCard.className = 'card';
-  chartCard.innerHTML = `<h2 class="text-lg font-semibold mb-4">${title}</h2>`;
-
-  const chartContainer = document.createElement('div');
-  chartContainer.className = 'chart-container';
-  chartContainer.id = `pl-chart-${sheetName}`;
-  chartCard.appendChild(chartContainer);
-
-  container.appendChild(chartCard);
-
-  // テーブルカード
-  const tableCard = document.createElement('div');
-  tableCard.className = 'card';
-  tableCard.innerHTML = `<h2 class="text-lg font-semibold mb-4">${title.replace('推移', '')}明細</h2>`;
-
-  const table = document.createElement('table');
-  table.className = 'w-full border-collapse text-xs';
-  table.style.marginBottom = '0';
-
-  // ヘッダー
-  const headers = ['項目', '11月', '12月', '1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月'];
-  const thead = document.createElement('thead');
-  const headerRow = document.createElement('tr');
-  headerRow.style.borderBottom = '2px solid #d1d5db';
-  headers.forEach(h => {
-    const th = document.createElement('th');
-    th.textContent = h;
-    th.style.padding = '6px';
-    th.style.fontWeight = '600';
-    th.style.background = '#f9fafb';
-    th.style.textAlign = h === '項目' ? 'left' : 'right';
-    headerRow.appendChild(th);
-  });
-  thead.appendChild(headerRow);
-  table.appendChild(thead);
-
-  // データ抽出
-  const actualRows = {};
-
-  sheet.data.forEach(row => {
-    if (!row || !row[0]) return;
-    const itemName = String(row[0]).trim();
-    if (itemName === '売上高合計') actualRows['売上高'] = row;
-    else if (itemName === '売上総利益' || itemName === '売上総利益合計') actualRows['売上総利益'] = row;
-    else if (itemName === '営業利益') actualRows['営業利益'] = row;
-    else if (itemName === '営業利益(本社費用割賦後)') actualRows['営業利益(本社費用割賦後)'] = row;
-  });
-
-  const tbody = document.createElement('tbody');
-  const items = ['売上高', '売上総利益', '営業利益', '営業利益(本社費用割賦後)'];
-
-  items.forEach(item => {
-    const actualRow = actualRows[item];
-    if (!actualRow) return;
-
-    const tr = document.createElement('tr');
-    tr.style.borderBottom = '1px solid #e5e7eb';
-
-    const itemCell = document.createElement('td');
-    itemCell.textContent = item;
-    itemCell.style.padding = '6px';
-    itemCell.style.textAlign = 'left';
-    itemCell.style.fontWeight = '500';
-    tr.appendChild(itemCell);
-
-    for (let i = 2; i < 14; i++) {
-      const td = document.createElement('td');
-      const value = actualRow[i] || 0;
-      td.textContent = (value / 10000).toLocaleString('ja-JP', {minimumFractionDigits: 0, maximumFractionDigits: 0});
-      td.style.padding = '6px';
-      td.style.textAlign = 'right';
-      tr.appendChild(td);
-    }
-
-    tbody.appendChild(tr);
-  });
-
-  table.appendChild(tbody);
-  tableCard.appendChild(table);
-  container.appendChild(tableCard);
-
-  setTimeout(() => {
-    drawBusinessChart(chartContainer, sheet.data);
+    initPLComparisonChart(sheets.PL_actual, sheets.PL_budget);
+    initCFChart(sheets.CF);
+    if (sheets.PL_direct) initSegmentPLChart(sheets.PL_direct, 'direct-pl-chart');
+    if (sheets.PL_dispatch) initSegmentPLChart(sheets.PL_dispatch, 'dispatch-pl-chart');
   }, 100);
 }
 
-function drawBusinessChart(container, actualData) {
-  const canvas = document.createElement('canvas');
-  container.appendChild(canvas);
-  const ctx = canvas.getContext('2d');
+function renderPLComparison(actual, budget) {
+  if (!actual || actual.error) return '<div class="error">実績データが見つかりません</div>';
+  if (!budget || budget.error) return '<div class="error">予算データが見つかりません</div>';
 
-  const headers = actualData[0];
-  const colStart = 2;
-  const allLabels = headers.slice(colStart, colStart + 12).filter(h => h && h !== '合計' && !h.includes('その他'));
+  const months = actual.months || [];
+  let html = '<div class="chart-container"><canvas id="pl-comparison-chart"></canvas></div>';
+  html += '<div class="table-container"><table><thead><tr><th>項目</th>';
+  for (let m of months) html += `<th>${m}</th>`;
+  html += '</tr></thead><tbody>';
 
-  // 期間に応じたデータ範囲を決定
-  const [startIdx, endIdx] = getPeriodRange(allLabels.length);
-  const labels = allLabels.slice(startIdx, endIdx + 1);
-  const dataColStart = colStart + startIdx;
-  const dataColEnd = colStart + endIdx + 1;
+  const actualRows = actual.rows || [];
+  const budgetRows = budget.rows || [];
 
-  const actualRows = {};
-  actualData.forEach(row => {
-    if (!row || !row[0]) return;
-    const itemName = String(row[0]).trim();
-
-    if (itemName === '売上高合計') {
-      actualRows['売上高'] = row;
-    } else if (itemName === '売上総利益' || itemName === '売上総利益合計') {
-      actualRows['売上総利益'] = row;
-    } else if (itemName === '営業利益') {
-      actualRows['営業利益'] = row;
-    } else if (itemName === '営業利益(本社費用割賦後)') {
-      actualRows['営業利益(本社費用割賦後)'] = row;
-    }
-  });
-
-  const datasets = [];
-  const colors = {
-    '売上高': '#3b82f6',
-    '売上総利益': '#d97706',
-    '営業利益': '#000000',
-    '営業利益(本社費用割賦後)': '#7c3aed'
-  };
-
-  ['売上高', '売上総利益', '営業利益', '営業利益(本社費用割賦後)'].forEach(key => {
-    if (actualRows[key]) {
-      const values = actualRows[key].slice(dataColStart, dataColEnd)
-        .map(v => typeof v === 'number' ? Math.round(v / 10000) : 0);
-
-      datasets.push({
-        label: key,
-        data: values,
-        borderColor: colors[key],
-        backgroundColor: 'transparent',
-        borderWidth: 2,
-        tension: 0.4,
-        fill: false,
-        borderDash: []
-      });
-    }
-  });
-
-  new Chart(ctx, {
-    type: 'line',
-    data: { labels, datasets },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: { position: 'top' },
-        tooltip: {
-          mode: 'index',
-          intersect: false,
-          backgroundColor: 'rgba(0, 0, 0, 0.8)',
-          titleColor: '#fff',
-          bodyColor: '#fff',
-          borderColor: '#ccc',
-          borderWidth: 1,
-          padding: 12,
-          displayColors: true,
-          callbacks: {
-            title: function(context) {
-              return context[0].label;
-            },
-            label: function(context) {
-              const value = context.parsed.y;
-              return context.dataset.label + ': ' + value.toLocaleString() + '万円';
-            }
-          }
-        }
-      },
-      scales: {
-        x: {
-          grid: {
-            display: true
-          }
-        },
-        y: {
-          beginAtZero: true,
-          ticks: {
-            callback: v => v.toLocaleString() + '万円'
-          },
-          grid: {
-            drawBorder: true,
-            color: ctx => {
-              return ctx.tick.value === 0 ? '#999999' : '#e5e7eb';
-            },
-            lineWidth: ctx => {
-              return ctx.tick.value === 0 ? 3 : 1;
-            }
-          }
-        }
-      }
-    }
-  });
-}
-
-function drawPLChart(container, actualData, budgetData, showBudget = true) {
-  const canvas = document.createElement('canvas');
-  container.appendChild(canvas);
-  const ctx = canvas.getContext('2d');
-
-  const headers = actualData[0];
-  const colStart = 2;
-  const allLabels = headers.slice(colStart, colStart + 12).filter(h => h && h !== '合計' && !h.includes('その他'));
-
-  // 期間に応じたデータ範囲を決定
-  const [startIdx, endIdx] = getPeriodRange(allLabels.length);
-  const labels = allLabels.slice(startIdx, endIdx + 1);
-  const dataColStart = colStart + startIdx;
-  const dataColEnd = colStart + endIdx + 1;
-
-  const actualRows = {};
-  actualData.forEach(row => {
-    if (!row || !row[0]) return;
-    const itemName = String(row[0]).trim();
-
-    if (itemName === '売上高合計') {
-      actualRows['売上高'] = row;
-    } else if (itemName === '売上総利益') {
-      actualRows['売上総利益'] = row;
-    } else if (itemName === '営業利益') {
-      actualRows['営業利益'] = row;
-    }
-  });
-
-  const budgetRows = {};
-  budgetData.forEach(row => {
-    if (!row || !row[0]) return;
-    const itemName = String(row[0]).trim();
-
-    if (itemName === '売上高合計') {
-      budgetRows['売上高'] = row;
-    } else if (itemName === '売上総利益') {
-      budgetRows['売上総利益'] = row;
-    } else if (itemName === '営業利益') {
-      budgetRows['営業利益'] = row;
-    }
-  });
-
-  const datasets = [];
-  const colors = {
-    '売上高': '#3b82f6',
-    '売上総利益': '#10b981',
-    '営業利益': '#000000'
-  };
-
-  ['売上高', '売上総利益', '営業利益'].forEach(key => {
-    if (actualRows[key]) {
-      const values = actualRows[key].slice(dataColStart, dataColEnd)
-        .map(v => typeof v === 'number' ? Math.round(v / 10000) : 0);
-
-      // 売上総利益の色を濃いオレンジに変更
-      let color = colors[key];
-      if (key === '売上総利益') color = '#d97706';
-
-      datasets.push({
-        label: key,
-        data: values,
-        borderColor: color,
-        backgroundColor: 'transparent',
-        borderWidth: 2,
-        tension: 0.4,
-        fill: false,
-        borderDash: []
-      });
-    }
-  });
-
-  // 予算データを表示する場合のみ追加
-  if (showBudget) {
-    // 売上高の予算を追加（水色の破線）
-    if (budgetRows['売上高']) {
-      const values = budgetRows['売上高'].slice(dataColStart, dataColEnd)
-        .map(v => typeof v === 'number' ? Math.round(v / 10000) : 0);
-      datasets.push({
-        label: '売上高（予算）',
-        data: values,
-        borderColor: '#06b6d4',
-        backgroundColor: 'transparent',
-        borderWidth: 2,
-        tension: 0.4,
-        fill: false,
-        borderDash: [5, 5]
-      });
-    }
-
-    // 売上総利益の予算を追加（薄いオレンジの破線）
-    if (budgetRows['売上総利益']) {
-      const values = budgetRows['売上総利益'].slice(dataColStart, dataColEnd)
-        .map(v => typeof v === 'number' ? Math.round(v / 10000) : 0);
-      datasets.push({
-        label: '売上総利益（予算）',
-        data: values,
-        borderColor: '#fbbf24',
-        backgroundColor: 'transparent',
-        borderWidth: 2,
-        tension: 0.4,
-        fill: false,
-        borderDash: [5, 5]
-      });
-    }
-
-    // 営業利益の予算を追加（グレーの破線）
-    if (budgetRows['営業利益']) {
-      const values = budgetRows['営業利益'].slice(dataColStart, dataColEnd)
-        .map(v => typeof v === 'number' ? Math.round(v / 10000) : 0);
-      datasets.push({
-        label: '営業利益（予算）',
-        data: values,
-        borderColor: '#9ca3af',
-        backgroundColor: 'transparent',
-        borderWidth: 2,
-        tension: 0.4,
-        fill: false,
-        borderDash: [5, 5]
-      });
-    }
+  for (let row of actualRows) {
+    html += `<tr><td>${row.item}（実績）</td>`;
+    for (let val of (row.values || [])) html += `<td>${formatNum(val)}</td>`;
+    html += '</tr>';
   }
 
-  new Chart(ctx, {
-    type: 'line',
-    data: { labels, datasets },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: { position: 'top' },
-        tooltip: {
-          mode: 'index',
-          intersect: false,
-          backgroundColor: 'rgba(0, 0, 0, 0.8)',
-          titleColor: '#fff',
-          bodyColor: '#fff',
-          borderColor: '#ccc',
-          borderWidth: 1,
-          padding: 12,
-          displayColors: true,
-          callbacks: {
-            title: function(context) {
-              return context[0].label;
-            },
-            label: function(context) {
-              const value = context.parsed.y;
-              return context.dataset.label + ': ' + value.toLocaleString() + '万円';
-            }
-          }
-        }
-      },
-      scales: {
-        x: {
-          grid: {
-            display: true
-          }
-        },
-        y: {
-          beginAtZero: true,
-          ticks: {
-            callback: v => v.toLocaleString() + '万円'
-          },
-          grid: {
-            drawBorder: true,
-            color: ctx => {
-              return ctx.tick.value === 0 ? '#999999' : '#e5e7eb';
-            },
-            lineWidth: ctx => {
-              return ctx.tick.value === 0 ? 3 : 1;
-            }
-          }
-        }
-      }
-    }
-  });
-}
-
-function getPeriodRange(totalMonths) {
-  switch (currentPeriod) {
-    case 'q1': return [0, 2];      // 11月-1月
-    case 'q2': return [3, 5];      // 2月-4月
-    case 'q3': return [6, 8];      // 5月-7月
-    case 'q4': return [9, 11];     // 8月-10月
-    case 'h1': return [0, 5];      // 11月-4月
-    case 'h2': return [6, 11];     // 5月-10月
-    default: return [0, totalMonths - 1];  // 全期間
-  }
-}
-
-function renderCFChart(container) {
-  const sheet = allData.sheets?.['CF(見込+実績)'];
-
-  if (!sheet || !Array.isArray(sheet.data)) {
-    return;
+  for (let row of budgetRows) {
+    html += `<tr><td>${row.item}（予算）</td>`;
+    for (let val of (row.values || [])) html += `<td>${formatNum(val)}</td>`;
+    html += '</tr>';
   }
 
-  // データ抽出
-  let cashRow = null;
-  let burnRow = null;
-  let runwayRow = null;
-
-  sheet.data.forEach(row => {
-    if (!row || !row[0]) return;
-    const itemName = String(row[0]).trim();
-    if (itemName === '現預金残高') cashRow = row;
-    else if (itemName === 'バーンレート') burnRow = row;
-    else if (itemName === '月末時点ランウェイ') runwayRow = row;
-  });
-
-  if (!cashRow || !burnRow || !runwayRow) {
-    return;
-  }
-
-  // グラフカード
-  const chartCard = document.createElement('div');
-  chartCard.className = 'card';
-  chartCard.innerHTML = '<h2 class="text-lg font-semibold mb-4">キャッシュフロー推移</h2>';
-
-  const chartContainer = document.createElement('div');
-  chartContainer.className = 'chart-container';
-  chartContainer.id = 'cf-chart-container';
-  chartCard.appendChild(chartContainer);
-
-  container.appendChild(chartCard);
-
-  // メトリクスカード
-  const metricsCard = document.createElement('div');
-  metricsCard.className = 'card';
-  metricsCard.style.display = 'grid';
-  metricsCard.style.gridTemplateColumns = '1fr 1fr';
-  metricsCard.style.gap = '24px';
-
-  // 進行月は J列（7月）（インデックス 9）
-  const latestBurn = burnRow[9] || 0;
-  const latestRunway = runwayRow[9] || 0;
-
-  const burnMetric = document.createElement('div');
-  burnMetric.style.padding = '16px';
-  burnMetric.style.border = '1px solid #e5e7eb';
-  burnMetric.style.borderRadius = '6px';
-  burnMetric.innerHTML = `
-    <div style="font-size: 12px; color: #666; margin-bottom: 4px;">バーンレート（進行月）</div>
-    <div style="font-size: 24px; font-weight: bold; color: #000;">
-      ${(latestBurn / 10000).toLocaleString('ja-JP', {minimumFractionDigits: 1, maximumFractionDigits: 1})}
-      <span style="font-size: 14px; color: #666;">万円/月</span>
-    </div>
-  `;
-
-  const runwayMetric = document.createElement('div');
-  runwayMetric.style.padding = '16px';
-  runwayMetric.style.border = '1px solid #e5e7eb';
-  runwayMetric.style.borderRadius = '6px';
-  runwayMetric.innerHTML = `
-    <div style="font-size: 12px; color: #666; margin-bottom: 4px;">ランウェイ（進行月）</div>
-    <div style="font-size: 24px; font-weight: bold; color: #000;">
-      ${(typeof latestRunway === 'number' ? latestRunway : 0).toLocaleString('ja-JP', {minimumFractionDigits: 1, maximumFractionDigits: 1})}
-      <span style="font-size: 14px; color: #666;">ヶ月</span>
-    </div>
-  `;
-
-  metricsCard.appendChild(burnMetric);
-  metricsCard.appendChild(runwayMetric);
-
-  container.appendChild(metricsCard);
-
-  // バーンレート説明用注釈
-  const burnNoteDiv = document.createElement('div');
-  burnNoteDiv.style.padding = '12px 16px';
-  burnNoteDiv.style.backgroundColor = '#f9fafb';
-  burnNoteDiv.style.borderRadius = '6px';
-  burnNoteDiv.style.fontSize = '12px';
-  burnNoteDiv.style.lineHeight = '1.6';
-  burnNoteDiv.style.color = '#333';
-  burnNoteDiv.style.marginTop = '12px';
-  burnNoteDiv.innerHTML = `
-    上記のバーンレートおよびランウェイは<br>
-    <br>
-    <strong>定常キャッシュイン-定常キャッシュアウト-投資CF-財務CF</strong><br>
-    <br>
-    にて計算したもので、人材紹介の売上やスポットの経費は含まず<br>
-    実際の現預金推移の見通しは上記グラフとなる。
-  `;
-  container.appendChild(burnNoteDiv);
-
-  setTimeout(() => {
-    drawCFChart(chartContainer, cashRow);
-
-    // 注釈を追加
-    const noteDiv = document.createElement('div');
-    noteDiv.style.fontSize = '12px';
-    noteDiv.style.color = '#666';
-    noteDiv.style.marginTop = '12px';
-    noteDiv.textContent = '※上記金額のうち3,000万円は預金担保見合いの短期借入となる。';
-    chartCard.appendChild(noteDiv);
-  }, 100);
+  html += '</tbody></table></div>';
+  return html;
 }
 
-function drawCFChart(container, cashRow) {
-  const canvas = document.createElement('canvas');
-  container.appendChild(canvas);
-  const ctx = canvas.getContext('2d');
+function initPLComparisonChart(actual, budget) {
+  const ctx = document.getElementById('pl-comparison-chart');
+  if (!ctx || chartInstances['pl-comparison']) return;
 
-  const allLabels = ['11月', '12月', '1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月'];
-  const allValues = cashRow.slice(1, 13).map(v => typeof v === 'number' ? Math.round(v / 10000) : 0);
+  const months = actual.months || [];
+  const actualSales = (actual.rows?.find(r => r.item === '売上高合計') || {}).values || [];
+  const budgetSales = (budget.rows?.find(r => r.item === '売上高合計') || {}).values || [];
 
-  // 期間に応じたデータ範囲を決定
-  const [startIdx, endIdx] = getPeriodRange(allLabels.length);
-  const labels = allLabels.slice(startIdx, endIdx + 1);
-  const values = allValues.slice(startIdx, endIdx + 1);
-
-  new Chart(ctx, {
+  chartInstances['pl-comparison'] = new Chart(ctx, {
     type: 'line',
     data: {
-      labels,
+      labels: months,
+      datasets: [
+        {
+          label: '売上高（実績）',
+          data: actualSales,
+          borderColor: '#2563eb',
+          backgroundColor: 'rgba(37, 99, 235, 0.1)',
+          tension: 0.4,
+          fill: true
+        },
+        {
+          label: '売上高（予算）',
+          data: budgetSales,
+          borderColor: '#dc2626',
+          backgroundColor: 'rgba(220, 38, 38, 0.1)',
+          borderDash: [5, 5],
+          tension: 0.4,
+          fill: false
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { position: 'top' } },
+      scales: {
+        y: { beginAtZero: true, ticks: { callback: v => formatNum(v) } }
+      }
+    }
+  });
+}
+
+function renderCFChart(cfData) {
+  if (!cfData || cfData.error) return '<div class="error">CFデータが見つかりません</div>';
+
+  const months = cfData.months || [];
+  let html = '<div class="chart-container"><canvas id="cf-chart"></canvas></div>';
+  html += '<div class="table-container"><table><thead><tr><th>項目</th>';
+  for (let m of months) html += `<th>${m}</th>`;
+  html += '</tr></thead><tbody>';
+
+  for (let row of (cfData.rows || [])) {
+    html += `<tr><td>${row.item}</td>`;
+    for (let val of (row.values || [])) html += `<td>${formatNum(val)}</td>`;
+    html += '</tr>';
+  }
+
+  html += '</tbody></table></div>';
+  return html;
+}
+
+function initCFChart(cfData) {
+  const ctx = document.getElementById('cf-chart');
+  if (!ctx || chartInstances['cf']) return;
+
+  const months = cfData.months || [];
+  const cashBalance = (cfData.rows?.find(r => r.item === '現預金残高') || {}).values || [];
+
+  chartInstances['cf'] = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: months,
       datasets: [{
         label: '現預金残高',
-        data: values,
-        borderColor: '#3b82f6',
-        backgroundColor: 'rgba(59, 130, 246, 0.05)',
-        borderWidth: 2,
+        data: cashBalance,
+        borderColor: '#16a34a',
+        backgroundColor: 'rgba(22, 163, 74, 0.1)',
         tension: 0.4,
         fill: true
       }]
@@ -811,1284 +281,327 @@ function drawCFChart(container, cashRow) {
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      plugins: {
-        legend: { position: 'top' },
-        tooltip: {
-          mode: 'index',
-          intersect: false,
-          backgroundColor: 'rgba(0, 0, 0, 0.8)',
-          titleColor: '#fff',
-          bodyColor: '#fff',
-          borderColor: '#ccc',
-          borderWidth: 1,
-          padding: 12,
-          callbacks: {
-            label: function(context) {
-              const value = context.parsed.y;
-              return context.dataset.label + ': ' + value.toLocaleString() + '万円';
-            }
-          }
-        }
-      },
+      plugins: { legend: { position: 'top' } },
       scales: {
-        x: { grid: { display: true } },
-        y: {
-          beginAtZero: true,
-          ticks: {
-            callback: v => v.toLocaleString() + '万円'
-          },
-          grid: {
-            drawBorder: true,
-            color: '#e5e7eb'
-          }
-        }
+        y: { ticks: { callback: v => formatNum(v) } }
       }
     }
   });
 }
 
-function renderIndicators() {
-  const container = document.getElementById('indicators-content');
-  container.innerHTML = '';
-  renderSupportByIndustry(container);
-  renderIntroductionByIndustry(container);
-  renderDispatchPerformance(container);
+function renderSegmentPLChart(segmentData) {
+  if (!segmentData || segmentData.error) return '<div class="error">セグメントデータが見つかりません</div>';
+
+  const sheetName = segmentData.sheetName || '不明';
+  const chartId = sheetName.includes('直接') ? 'direct-pl-chart' : 'dispatch-pl-chart';
+
+  const months = segmentData.months || [];
+  let html = `<div class="chart-container"><canvas id="${chartId}"></canvas></div>`;
+  html += '<div class="table-container"><table><thead><tr><th>項目</th>';
+  for (let m of months) html += `<th>${m}</th>`;
+  html += '</tr></thead><tbody>';
+
+  for (let row of (segmentData.rows || [])) {
+    html += `<tr><td>${row.item}</td>`;
+    for (let val of (row.values || [])) html += `<td>${formatNum(val)}</td>`;
+    html += '</tr>';
+  }
+
+  html += '</tbody></table></div>';
+  return html;
 }
 
-function renderComparison() {
-  const container = document.getElementById('comparison-content');
-  container.innerHTML = '';
-  renderYearOverYearComparison(container);
-}
+function initSegmentPLChart(segmentData, chartId) {
+  const ctx = document.getElementById(chartId);
+  if (!ctx || chartInstances[chartId]) return;
 
-function renderYearOverYearComparison(container) {
-  const plSheet = allData.sheets?.['全社PL(見込+実績)'];
-  const compSheet = allData.sheets?.['比較用昨年データ'];
+  const months = segmentData.months || [];
+  const salesRow = segmentData.rows?.find(r => r.item === '売上高合計') || {};
+  const profitRow = segmentData.rows?.find(r => r.item === '営業利益') || {};
 
-  if (!plSheet || !compSheet || !Array.isArray(plSheet.data) || !Array.isArray(compSheet.data)) {
-    return;
-  }
-
-  // 今年のデータを抽出
-  const thisYearData = {};
-  plSheet.data.forEach(row => {
-    if (!row || !row[0]) return;
-    const itemName = String(row[0]).trim();
-    if (itemName === '売上高' || itemName === '売上高合計') thisYearData['売上高'] = row;
-    else if (itemName === '売上総利益') thisYearData['売上総利益'] = row;
-    else if (itemName === '営業利益') thisYearData['営業利益'] = row;
-  });
-
-  // 昨年のデータを抽出
-  const lastYearData = {};
-  compSheet.data.forEach(row => {
-    if (!row || !row[0]) return;
-    const itemName = String(row[0]).trim();
-    if (itemName === '売上' || itemName === '売上高') lastYearData['売上高'] = row;
-    else if (itemName === '売上総利益') lastYearData['売上総利益'] = row;
-    else if (itemName === '営業利益') lastYearData['営業利益'] = row;
-    else if (itemName === '紹介人数') lastYearData['紹介人数'] = row;
-    else if (itemName === '支援人数') lastYearData['支援人数'] = row;
-    else if (itemName === '派遣人数') lastYearData['派遣人数'] = row;
-    else if (itemName === '派遣時間') lastYearData['派遣時間'] = row;
-  });
-
-  console.log('Last year data:', lastYearData);
-
-  // 3つのPL指標ごとにグラフを作成
-  const plIndicators = ['売上高', '売上総利益', '営業利益'];
-  plIndicators.forEach(indicator => {
-    const chartCard = document.createElement('div');
-    chartCard.className = 'card';
-    chartCard.innerHTML = `<h2 class="text-lg font-semibold mb-4">${indicator}（昨対比）</h2>`;
-
-    const chartContainer = document.createElement('div');
-    chartContainer.style.position = 'relative';
-    chartContainer.style.height = '400px';
-    chartContainer.style.marginBottom = '24px';
-    chartCard.appendChild(chartContainer);
-
-    container.appendChild(chartCard);
-
-    setTimeout(() => {
-      drawYearOverYearChart(chartContainer, indicator, thisYearData[indicator], lastYearData[indicator]);
-      const isMonetary = ['売上高', '売上総利益', '営業利益'].includes(indicator);
-      drawYearOverYearTable(chartCard, thisYearData[indicator], lastYearData[indicator], indicator, isMonetary);
-    }, 100);
-  });
-
-  // 紹介人数
-  const introductionSheet = allData.sheets?.['業種別紹介人数'];
-  if (introductionSheet) {
-    // 凡例に含まれる業種の合計を計算
-    const introductionTotals = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
-    introductionSheet.data.forEach(row => {
-      if (!row || !row[0]) return;
-      const industryName = String(row[0]).trim();
-      if (!industryName || industryName === '' || industryName === '全業種合計' || industryName.includes('<業種別紹介人数>')) return;
-
-      for (let i = 1; i <= 12; i++) {
-        introductionTotals[i - 1] += (row[i] || 0);
-      }
-    });
-
-    const introductionThisYear = ['紹介人数', ...introductionTotals];
-
-    if (introductionThisYear) {
-      const chartCard = document.createElement('div');
-      chartCard.className = 'card';
-      chartCard.innerHTML = '<h2 class="text-lg font-semibold mb-4">紹介人数（昨対比）</h2>';
-
-      const chartContainer = document.createElement('div');
-      chartContainer.style.position = 'relative';
-      chartContainer.style.height = '400px';
-      chartContainer.style.marginBottom = '24px';
-      chartCard.appendChild(chartContainer);
-
-      container.appendChild(chartCard);
-
-      setTimeout(() => {
-        drawSimpleYearOverYearChart(chartContainer, introductionThisYear, lastYearData['紹介人数']);
-        drawYearOverYearTable(chartCard, introductionThisYear, lastYearData['紹介人数']);
-      }, 100);
-    }
-  }
-
-  // 支援人数
-  const supportSheet = allData.sheets?.['業種別支援人数'];
-  if (supportSheet) {
-    // 凡例に含まれる業種の合計を計算
-    const supportTotals = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
-    supportSheet.data.forEach(row => {
-      if (!row || !row[0]) return;
-      const industryName = String(row[0]).trim();
-      if (!industryName || industryName === '' || industryName === '全業種合計' || industryName.includes('<業種別支援人数>')) return;
-
-      for (let i = 1; i <= 12; i++) {
-        supportTotals[i - 1] += (row[i] || 0);
-      }
-    });
-
-    const supportThisYear = ['支援人数', ...supportTotals];
-
-    if (supportThisYear) {
-      const chartCard = document.createElement('div');
-      chartCard.className = 'card';
-      chartCard.innerHTML = '<h2 class="text-lg font-semibold mb-4">支援人数（昨対比）</h2>';
-
-      const chartContainer = document.createElement('div');
-      chartContainer.style.position = 'relative';
-      chartContainer.style.height = '400px';
-      chartContainer.style.marginBottom = '24px';
-      chartCard.appendChild(chartContainer);
-
-      container.appendChild(chartCard);
-
-      setTimeout(() => {
-        drawSimpleYearOverYearChart(chartContainer, supportThisYear, lastYearData['支援人数']);
-        drawYearOverYearTable(chartCard, supportThisYear, lastYearData['支援人数']);
-      }, 100);
-    }
-  }
-
-  // 派遣人数と派遣時間
-  const dispatchSheet = allData.sheets?.['派遣サマリ'];
-  if (dispatchSheet) {
-    let dispatchPeople = null;
-    let dispatchHours = null;
-    dispatchSheet.data.forEach(row => {
-      if (row && String(row[0]).trim() === '総人数') dispatchPeople = row;
-      else if (row && String(row[0]).trim() === '総時間') dispatchHours = row;
-    });
-
-    if (dispatchPeople && dispatchHours && lastYearData['派遣人数'] && lastYearData['派遣時間']) {
-      const chartCard = document.createElement('div');
-      chartCard.className = 'card';
-      chartCard.innerHTML = '<h2 class="text-lg font-semibold mb-4">派遣人数・派遣時間（昨対比）</h2>';
-
-      const chartContainer = document.createElement('div');
-      chartContainer.style.position = 'relative';
-      chartContainer.style.height = '400px';
-      chartContainer.style.marginBottom = '24px';
-      chartCard.appendChild(chartContainer);
-
-      container.appendChild(chartCard);
-
-      setTimeout(() => {
-        drawDualAxisYearOverYearChart(chartContainer, dispatchPeople, dispatchHours, lastYearData['派遣人数'], lastYearData['派遣時間']);
-        drawDualAxisYearOverYearTable(chartCard, dispatchPeople, dispatchHours, lastYearData['派遣人数'], lastYearData['派遣時間']);
-      }, 100);
-    }
-  }
-}
-
-function drawYearOverYearChart(container, indicator, thisYearRow, lastYearRow) {
-  if (!thisYearRow || !lastYearRow) {
-    return;
-  }
-
-  const canvas = document.createElement('canvas');
-  container.appendChild(canvas);
-  const ctx = canvas.getContext('2d');
-
-  const labels = ['11月', '12月', '1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月'];
-
-  const thisYearValues = thisYearRow.slice(2, 14).map(v => typeof v === 'number' ? Math.round(v / 10000) : 0);
-  const lastYearValues = lastYearRow.slice(1, 13).map(v => typeof v === 'number' ? Math.round(v / 10000) : 0);
-
-  new Chart(ctx, {
-    type: 'line',
+  chartInstances[chartId] = new Chart(ctx, {
+    type: 'bar',
     data: {
-      labels,
+      labels: months,
       datasets: [
         {
-          label: '今年',
-          data: thisYearValues,
-          borderColor: '#ef4444',
-          backgroundColor: 'transparent',
-          borderWidth: 2,
-          tension: 0.4,
-          fill: false
+          label: '売上高合計',
+          data: salesRow.values || [],
+          backgroundColor: '#3b82f6',
+          yAxisID: 'y'
         },
         {
-          label: '昨年',
-          data: lastYearValues,
-          borderColor: '#3b82f6',
-          backgroundColor: 'transparent',
-          borderWidth: 2,
-          tension: 0.4,
-          fill: false,
-          borderDash: [5, 5]
+          label: '営業利益',
+          data: profitRow.values || [],
+          backgroundColor: '#10b981',
+          yAxisID: 'y1'
         }
       ]
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      plugins: {
-        legend: { position: 'top' },
-        tooltip: {
-          mode: 'index',
-          intersect: false,
-          backgroundColor: 'rgba(0, 0, 0, 0.8)',
-          titleColor: '#fff',
-          bodyColor: '#fff',
-          borderColor: '#ccc',
-          borderWidth: 1,
-          padding: 12,
-          callbacks: {
-            label: function(context) {
-              const value = context.parsed.y;
-              return context.dataset.label + ': ' + value.toLocaleString() + '万円';
-            }
-          }
-        }
-      },
+      plugins: { legend: { position: 'top' } },
       scales: {
-        x: { grid: { display: true } },
-        y: {
-          beginAtZero: true,
-          ticks: {
-            callback: v => v.toLocaleString() + '万円'
-          },
-          grid: indicator === '営業利益' ? {
-            drawBorder: true,
-            color: ctx => {
-              return ctx.tick.value === 0 ? '#999999' : '#e5e7eb';
-            },
-            lineWidth: ctx => {
-              return ctx.tick.value === 0 ? 3 : 1;
-            }
-          } : {}
-        }
+        y: { beginAtZero: true, ticks: { callback: v => formatNum(v) } },
+        y1: { position: 'right', ticks: { callback: v => formatNum(v) } }
       }
     }
   });
 }
 
-function renderSupportByIndustry(container) {
-  const sheet = allData.sheets?.['業種別支援人数'];
+// ============================================================
+// 事業指標タブ
+// ============================================================
+function renderIndicators() {
+  const sheets = allData.sheets || {};
+  let html = '';
 
-  if (!sheet || !Array.isArray(sheet.data)) {
-    return;
-  }
+  // 業種別支援人数
+  html += '<div class="card">';
+  html += '<div class="card-title">業種別支援人数月次推移</div>';
+  html += renderGenreChart(sheets.genre_support, 'genre-support-chart');
+  html += '</div>';
 
-  // グラフカード
-  const chartCard = document.createElement('div');
-  chartCard.className = 'card';
-  chartCard.innerHTML = '<h2 class="text-lg font-semibold mb-4">業種別支援人数推移（月次）</h2>';
+  // 業種別紹介人数
+  html += '<div class="card">';
+  html += '<div class="card-title">業種別紹介人数月次推移</div>';
+  html += renderGenreChart(sheets.genre_intro, 'genre-intro-chart');
+  html += '</div>';
 
-  const chartContainer = document.createElement('div');
-  chartContainer.style.position = 'relative';
-  chartContainer.style.height = '500px';
-  chartContainer.style.marginBottom = '24px';
-  chartCard.appendChild(chartContainer);
+  // 派遣重要変数
+  html += '<div class="card">';
+  html += '<div class="card-title">派遣重要変数月次推移</div>';
+  html += renderDispatchVariables(sheets.dispatch_variables);
+  html += '</div>';
 
-  container.appendChild(chartCard);
-
-  // テーブルカード
-  const tableCard = document.createElement('div');
-  tableCard.className = 'card';
-  tableCard.innerHTML = '<h2 class="text-lg font-semibold mb-4">業種別支援人数推移 明細</h2>';
-
-  const table = document.createElement('table');
-  table.className = 'w-full border-collapse text-xs';
-  table.style.marginBottom = '0';
-
-  // ヘッダー
-  const headers = ['業種', '11月', '12月', '1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月'];
-  const thead = document.createElement('thead');
-  const headerRow = document.createElement('tr');
-  headerRow.style.borderBottom = '2px solid #d1d5db';
-  headers.forEach(h => {
-    const th = document.createElement('th');
-    th.textContent = h;
-    th.style.padding = '6px';
-    th.style.fontWeight = '600';
-    th.style.background = '#f9fafb';
-    th.style.textAlign = h === '業種' ? 'left' : 'right';
-    headerRow.appendChild(th);
-  });
-  thead.appendChild(headerRow);
-  table.appendChild(thead);
-
-  // データ行：凡例に含まれる業種の合計を計算
-  const tbody = document.createElement('tbody');
-  const totals = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
-
-  sheet.data.forEach(row => {
-    if (!row || !row[0]) return;
-    const industryName = String(row[0]).trim();
-
-    // 凡例に含まれる業種のデータを合計（<業種別支援人数>と全業種合計を除く）
-    if (!industryName || industryName === '' || industryName === '全業種合計' || industryName.includes('<業種別支援人数>')) return;
-
-    for (let i = 1; i <= 12; i++) {
-      totals[i - 1] += (row[i] || 0);
-    }
-  });
-
-  const tr = document.createElement('tr');
-  tr.style.borderBottom = '2px solid #d1d5db';
-  tr.style.fontWeight = '600';
-  tr.style.backgroundColor = '#f0f0f0';
-
-  const nameCell = document.createElement('td');
-  nameCell.textContent = '合計';
-  nameCell.style.padding = '6px';
-  nameCell.style.textAlign = 'left';
-  nameCell.style.fontWeight = '600';
-  tr.appendChild(nameCell);
-
-  for (let i = 0; i < 12; i++) {
-    const td = document.createElement('td');
-    td.textContent = totals[i];
-    td.style.padding = '6px';
-    td.style.textAlign = 'right';
-    td.style.fontWeight = '600';
-    tr.appendChild(td);
-  }
-
-  tbody.appendChild(tr);
-
-  table.appendChild(tbody);
-  tableCard.appendChild(table);
-  container.appendChild(tableCard);
+  document.getElementById('indicators-content').innerHTML = html;
 
   setTimeout(() => {
-    drawSupportByIndustryChart(chartContainer, sheet.data);
+    initGenreChart(sheets.genre_support, 'genre-support-chart');
+    initGenreChart(sheets.genre_intro, 'genre-intro-chart');
+    initDispatchVariablesChart(sheets.dispatch_variables);
   }, 100);
 }
 
-function drawSupportByIndustryChart(container, data) {
-  const canvas = document.createElement('canvas');
-  container.appendChild(canvas);
-  const ctx = canvas.getContext('2d');
+function renderGenreChart(data, chartId) {
+  if (!data || data.error) return '<div class="error">データが見つかりません</div>';
 
-  const labels = ['11月', '12月', '1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月'];
+  const months = data.months || [];
+  let html = `<div class="chart-container"><canvas id="${chartId}"></canvas></div>`;
+  html += '<div class="table-container"><table><thead><tr><th>業種</th>';
+  for (let m of months) html += `<th>${m}</th>`;
+  html += '</tr></thead><tbody>';
 
-  const colors = {
-    '介護': '#3b82f6',
-    '農業': '#ef4444',
-    '宿泊': '#10b981',
-    '飲食料品製造': '#f59e0b',
-    '外食': '#8b5cf6',
-    '建設': '#06b6d4',
-    'ビルクリーニング': '#ec4899',
-    '工業製品製造': '#f97316',
-    '在留資格介護': '#14b8a6'
-  };
+  for (let row of (data.rows || [])) {
+    html += `<tr><td>${row.genre || row.item || '不明'}</td>`;
+    for (let val of (row.values || [])) html += `<td>${formatNum(val)}</td>`;
+    html += '</tr>';
+  }
 
-  const datasets = [];
+  html += '</tbody></table></div>';
+  return html;
+}
 
-  // 業種ごとのデータを抽出（4行目以降のみ）
-  data.forEach((row, index) => {
-    if (!row || !row[0]) return;
-    const industryName = String(row[0]).trim();
+function initGenreChart(data, chartId) {
+  const ctx = document.getElementById(chartId);
+  if (!ctx || chartInstances[chartId]) return;
 
-    // 3行目（<業種別支援人数>）と全業種合計をスキップ
-    if (!industryName || industryName === '' || industryName === '全業種合計' || industryName.includes('<業種別支援人数>')) return;
+  const months = data.months || [];
+  const rows = data.rows || [];
 
-    const values = row.slice(1, 13).map(v => v || 0);
+  const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316', '#6366f1', '#06b6d4', '#84cc16', '#a855f7'];
 
-    datasets.push({
-      label: industryName,
-      data: values,
-      backgroundColor: colors[industryName] || '#999999',
-      borderColor: '#fff',
-      borderWidth: 0
-    });
-  });
+  const datasets = rows.slice(0, 12).map((row, idx) => ({
+    label: row.genre || row.item || `項目${idx + 1}`,
+    data: row.values || [],
+    borderColor: colors[idx % colors.length],
+    backgroundColor: colors[idx % colors.length],
+    borderWidth: 2,
+    fill: false,
+    tension: 0.4
+  }));
 
-  new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels,
-      datasets
-    },
+  chartInstances[chartId] = new Chart(ctx, {
+    type: 'line',
+    data: { labels: months, datasets },
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      plugins: {
-        legend: { position: 'top' },
-        tooltip: {
-          mode: 'index',
-          intersect: false,
-          backgroundColor: 'rgba(0, 0, 0, 0.8)',
-          titleColor: '#fff',
-          bodyColor: '#fff',
-          borderColor: '#ccc',
-          borderWidth: 1,
-          padding: 12
-        }
-      },
-      scales: {
-        x: {
-          stacked: true,
-          beginAtZero: true
-        },
-        y: {
-          stacked: true,
-          beginAtZero: true,
-          ticks: {
-            callback: v => Math.round(v)
-          }
-        }
-      }
+      plugins: { legend: { position: 'top' } },
+      scales: { y: { beginAtZero: true, ticks: { callback: v => formatNum(v) } } }
     }
   });
 }
 
-function renderIntroductionByIndustry(container) {
-  const sheet = allData.sheets?.['業種別紹介人数'];
+function renderDispatchVariables(data) {
+  if (!data || data.error) return '<div class="error">派遣変数データが見つかりません</div>';
 
-  if (!sheet || !Array.isArray(sheet.data)) {
-    return;
+  const months = data.months || [];
+  let html = '<div class="chart-container"><canvas id="dispatch-variables-chart"></canvas></div>';
+  html += '<div class="table-container"><table><thead><tr><th>項目</th>';
+  for (let m of months) html += `<th>${m}</th>`;
+  html += '</tr></thead><tbody>';
+
+  for (let row of (data.rows || [])) {
+    html += `<tr><td>${row.item}</td>`;
+    for (let val of (row.values || [])) html += `<td>${formatNum(val)}</td>`;
+    html += '</tr>';
   }
 
-  // グラフカード
-  const chartCard = document.createElement('div');
-  chartCard.className = 'card';
-  chartCard.innerHTML = '<h2 class="text-lg font-semibold mb-4">業種別紹介人数推移（月次）</h2>';
-
-  const chartContainer = document.createElement('div');
-  chartContainer.style.position = 'relative';
-  chartContainer.style.height = '500px';
-  chartContainer.style.marginBottom = '24px';
-  chartCard.appendChild(chartContainer);
-
-  container.appendChild(chartCard);
-
-  // テーブルカード
-  const tableCard = document.createElement('div');
-  tableCard.className = 'card';
-  tableCard.innerHTML = '<h2 class="text-lg font-semibold mb-4">業種別紹介人数推移 明細</h2>';
-
-  const table = document.createElement('table');
-  table.className = 'w-full border-collapse text-xs';
-  table.style.marginBottom = '0';
-
-  // ヘッダー
-  const headers = ['業種', '11月', '12月', '1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月'];
-  const thead = document.createElement('thead');
-  const headerRow = document.createElement('tr');
-  headerRow.style.borderBottom = '2px solid #d1d5db';
-  headers.forEach(h => {
-    const th = document.createElement('th');
-    th.textContent = h;
-    th.style.padding = '6px';
-    th.style.fontWeight = '600';
-    th.style.background = '#f9fafb';
-    th.style.textAlign = h === '業種' ? 'left' : 'right';
-    headerRow.appendChild(th);
-  });
-  thead.appendChild(headerRow);
-  table.appendChild(thead);
-
-  // データ行：凡例に含まれる業種の合計を計算
-  const tbody = document.createElement('tbody');
-  const totals = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
-
-  sheet.data.forEach(row => {
-    if (!row || !row[0]) return;
-    const industryName = String(row[0]).trim();
-
-    // 凡例に含まれる業種のデータを合計（<業種別紹介人数>と全業種合計を除く）
-    if (!industryName || industryName === '' || industryName === '全業種合計' || industryName.includes('<業種別紹介人数>')) return;
-
-    for (let i = 1; i <= 12; i++) {
-      totals[i - 1] += (row[i] || 0);
-    }
-  });
-
-  const tr = document.createElement('tr');
-  tr.style.borderBottom = '2px solid #d1d5db';
-  tr.style.fontWeight = '600';
-  tr.style.backgroundColor = '#f0f0f0';
-
-  const nameCell = document.createElement('td');
-  nameCell.textContent = '合計';
-  nameCell.style.padding = '6px';
-  nameCell.style.textAlign = 'left';
-  nameCell.style.fontWeight = '600';
-  tr.appendChild(nameCell);
-
-  for (let i = 0; i < 12; i++) {
-    const td = document.createElement('td');
-    td.textContent = totals[i];
-    td.style.padding = '6px';
-    td.style.textAlign = 'right';
-    td.style.fontWeight = '600';
-    tr.appendChild(td);
-  }
-
-  tbody.appendChild(tr);
-  table.appendChild(tbody);
-  tableCard.appendChild(table);
-  container.appendChild(tableCard);
-
-  setTimeout(() => {
-    drawIntroductionByIndustryChart(chartContainer, sheet.data);
-  }, 100);
+  html += '</tbody></table></div>';
+  return html;
 }
 
-function drawIntroductionByIndustryChart(container, data) {
-  const canvas = document.createElement('canvas');
-  container.appendChild(canvas);
-  const ctx = canvas.getContext('2d');
+function initDispatchVariablesChart(data) {
+  const ctx = document.getElementById('dispatch-variables-chart');
+  if (!ctx || chartInstances['dispatch-variables']) return;
 
-  const labels = ['11月', '12月', '1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月'];
+  const months = data.months || [];
+  const timeRow = data.rows?.find(r => r.item === '総時間') || {};
+  const peopleRow = data.rows?.find(r => r.item === '総人数') || {};
 
-  const colors = {
-    '介護': '#3b82f6',
-    '農業': '#ef4444',
-    '宿泊': '#10b981',
-    '飲食料品製造': '#f59e0b',
-    '外食': '#8b5cf6',
-    '建設': '#06b6d4',
-    'ビルクリーニング': '#ec4899',
-    '工業製品製造': '#f97316',
-    '在留資格介護': '#14b8a6'
-  };
-
-  const datasets = [];
-
-  // 業種ごとのデータを抽出（介護以下のみ）
-  data.forEach((row, index) => {
-    if (!row || !row[0]) return;
-    const industryName = String(row[0]).trim();
-
-    // 3行目（<業種別紹介人数>）と全業種合計をスキップ
-    if (!industryName || industryName === '' || industryName === '全業種合計' || industryName.includes('<業種別紹介人数>')) return;
-
-    const values = row.slice(1, 13).map(v => v || 0);
-
-    datasets.push({
-      label: industryName,
-      data: values,
-      backgroundColor: colors[industryName] || '#999999',
-      borderColor: '#fff',
-      borderWidth: 0
-    });
-  });
-
-  new Chart(ctx, {
+  chartInstances['dispatch-variables'] = new Chart(ctx, {
     type: 'bar',
     data: {
-      labels,
-      datasets
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: { position: 'top' },
-        tooltip: {
-          mode: 'index',
-          intersect: false,
-          backgroundColor: 'rgba(0, 0, 0, 0.8)',
-          titleColor: '#fff',
-          bodyColor: '#fff',
-          borderColor: '#ccc',
-          borderWidth: 1,
-          padding: 12
-        }
-      },
-      scales: {
-        x: {
-          stacked: true,
-          beginAtZero: true
-        },
-        y: {
-          stacked: true,
-          beginAtZero: true,
-          ticks: {
-            callback: v => Math.round(v)
-          }
-        }
-      }
-    }
-  });
-}
-
-function renderDispatchPerformance(container) {
-  const sheet = allData.sheets?.['派遣サマリ'];
-
-  if (!sheet || !Array.isArray(sheet.data)) {
-    return;
-  }
-
-  // グラフカード
-  const chartCard = document.createElement('div');
-  chartCard.className = 'card';
-  chartCard.innerHTML = '<h2 class="text-lg font-semibold mb-4">派遣実績推移（月次）</h2>';
-
-  const chartContainer = document.createElement('div');
-  chartContainer.style.position = 'relative';
-  chartContainer.style.height = '500px';
-  chartContainer.style.marginBottom = '24px';
-  chartCard.appendChild(chartContainer);
-
-  container.appendChild(chartCard);
-
-  // テーブルカード
-  const tableCard = document.createElement('div');
-  tableCard.className = 'card';
-  tableCard.innerHTML = '<h2 class="text-lg font-semibold mb-4">派遣実績推移 明細</h2>';
-
-  const table = document.createElement('table');
-  table.className = 'w-full border-collapse text-xs';
-  table.style.marginBottom = '0';
-
-  // ヘッダー
-  const headers = ['項目', '11月', '12月', '1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月'];
-  const thead = document.createElement('thead');
-  const headerRow = document.createElement('tr');
-  headerRow.style.borderBottom = '2px solid #d1d5db';
-  headers.forEach(h => {
-    const th = document.createElement('th');
-    th.textContent = h;
-    th.style.padding = '6px';
-    th.style.fontWeight = '600';
-    th.style.background = '#f9fafb';
-    th.style.textAlign = h === '項目' ? 'left' : 'right';
-    headerRow.appendChild(th);
-  });
-  thead.appendChild(headerRow);
-  table.appendChild(thead);
-
-  // データ行
-  const tbody = document.createElement('tbody');
-
-  const items = ['平均時給', '平均時間'];
-  const itemMap = {};
-
-  sheet.data.forEach(row => {
-    if (!row || !row[0]) return;
-    const itemName = String(row[0]).trim();
-    if (itemName === '平均時給') itemMap['平均時給'] = row;
-    else if (itemName === '平均時間') itemMap['平均時間'] = row;
-  });
-
-  items.forEach(itemName => {
-    if (!itemMap[itemName]) return;
-
-    const row = itemMap[itemName];
-    const tr = document.createElement('tr');
-    tr.style.borderBottom = '1px solid #e5e7eb';
-
-    const nameCell = document.createElement('td');
-    nameCell.textContent = itemName;
-    nameCell.style.padding = '6px';
-    nameCell.style.textAlign = 'left';
-    nameCell.style.fontWeight = '500';
-    tr.appendChild(nameCell);
-
-    for (let i = 1; i <= 12; i++) {
-      const td = document.createElement('td');
-      const value = row[i] || 0;
-      let displayValue = '';
-      if (itemName === '平均時給') {
-        displayValue = Math.round(value).toLocaleString('ja-JP');
-      } else {
-        displayValue = (typeof value === 'number' ? value.toLocaleString('ja-JP', {minimumFractionDigits: 1, maximumFractionDigits: 1}) : '0');
-      }
-      td.textContent = displayValue;
-      td.style.padding = '6px';
-      td.style.textAlign = 'right';
-      tr.appendChild(td);
-    }
-
-    tbody.appendChild(tr);
-  });
-
-  table.appendChild(tbody);
-  tableCard.appendChild(table);
-  container.appendChild(tableCard);
-
-  setTimeout(() => {
-    drawDispatchPerformanceChart(chartContainer, sheet.data);
-  }, 100);
-}
-
-function drawDispatchPerformanceChart(container, data) {
-  const canvas = document.createElement('canvas');
-  container.appendChild(canvas);
-  const ctx = canvas.getContext('2d');
-
-  const labels = ['11月', '12月', '1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月'];
-
-  // データ抽出
-  let totalTimeRow = null;
-  let totalPeopleRow = null;
-
-  data.forEach(row => {
-    if (!row || !row[0]) return;
-    const itemName = String(row[0]).trim();
-    if (itemName === '総時間') totalTimeRow = row;
-    else if (itemName === '総人数') totalPeopleRow = row;
-  });
-
-  if (!totalTimeRow || !totalPeopleRow) {
-    return;
-  }
-
-  const timeValues = totalTimeRow.slice(1, 13).map(v => Math.round((v || 0)));
-  const peopleValues = totalPeopleRow.slice(1, 13).map(v => v || 0);
-
-  new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels,
+      labels: months,
       datasets: [
         {
           label: '総時間',
-          data: timeValues,
-          type: 'line',
-          borderColor: '#ef4444',
-          backgroundColor: 'transparent',
-          borderWidth: 2,
-          tension: 0.4,
-          yAxisID: 'y1',
-          fill: false
+          data: timeRow.values || [],
+          backgroundColor: '#3b82f6',
+          yAxisID: 'y'
         },
         {
           label: '総人数',
-          data: peopleValues,
-          type: 'bar',
-          backgroundColor: '#fecaca',
-          borderColor: '#fecaca',
-          borderWidth: 1,
-          yAxisID: 'y',
-          barThickness: 'flex'
+          data: peopleRow.values || [],
+          backgroundColor: '#10b981',
+          yAxisID: 'y1'
         }
       ]
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      plugins: {
-        legend: { position: 'top' },
-        tooltip: {
-          mode: 'index',
-          intersect: false,
-          backgroundColor: 'rgba(0, 0, 0, 0.8)',
-          titleColor: '#fff',
-          bodyColor: '#fff',
-          borderColor: '#ccc',
-          borderWidth: 1,
-          padding: 12
-        }
-      },
+      plugins: { legend: { position: 'top' } },
       scales: {
-        x: {
-          grid: { display: true }
-        },
-        y: {
-          type: 'linear',
-          position: 'left',
-          title: {
-            display: true,
-            text: '総人数'
-          },
-          beginAtZero: true
-        },
-        y1: {
-          type: 'linear',
-          position: 'right',
-          title: {
-            display: true,
-            text: '総時間'
-          },
-          beginAtZero: true,
-          grid: { drawOnChartArea: false }
-        }
+        y: { ticks: { callback: v => formatNum(v) } },
+        y1: { position: 'right', ticks: { callback: v => formatNum(v) } }
       }
     }
   });
 }
 
-function drawSimpleYearOverYearChart(container, thisYearRow, lastYearRow) {
-  console.log('drawSimpleYearOverYearChart - thisYearRow:', thisYearRow);
-  console.log('drawSimpleYearOverYearChart - lastYearRow:', lastYearRow);
+// ============================================================
+// 昨対比タブ
+// ============================================================
+function renderComparison() {
+  const sheets = allData.sheets || {};
+  let html = '';
 
-  if (!thisYearRow || !lastYearRow) {
-    console.log('Missing data - returning');
-    return;
+  // 業種別支援人数昨対比
+  html += '<div class="card">';
+  html += '<div class="card-title">業種別支援人数昨対比</div>';
+  html += renderYoYChart(sheets.genre_support, sheets.yoy_comparison, 'support', 'yoy-support-chart');
+  html += '</div>';
+
+  // 業種別紹介人数昨対比
+  html += '<div class="card">';
+  html += '<div class="card-title">業種別紹介人数昨対比</div>';
+  html += renderYoYChart(sheets.genre_intro, sheets.yoy_comparison, 'intro', 'yoy-intro-chart');
+  html += '</div>';
+
+  // 派遣人数昨対比
+  html += '<div class="card">';
+  html += '<div class="card-title">派遣人数昨対比</div>';
+  html += renderDispatchYoYChart(sheets.yoy_comparison, 'dispatch_people', 'yoy-dispatch-people-chart');
+  html += '</div>';
+
+  // 派遣総時間昨対比
+  html += '<div class="card">';
+  html += '<div class="card-title">派遣総時間昨対比</div>';
+  html += renderDispatchYoYChart(sheets.yoy_comparison, 'dispatch_hours', 'yoy-dispatch-hours-chart');
+  html += '</div>';
+
+  document.getElementById('comparison-content').innerHTML = html;
+
+  setTimeout(() => {
+    initYoYChart(sheets.genre_support, sheets.yoy_comparison, 'support', 'yoy-support-chart');
+    initYoYChart(sheets.genre_intro, sheets.yoy_comparison, 'intro', 'yoy-intro-chart');
+    initDispatchYoYChart(sheets.yoy_comparison, 'dispatch_people', 'yoy-dispatch-people-chart');
+    initDispatchYoYChart(sheets.yoy_comparison, 'dispatch_hours', 'yoy-dispatch-hours-chart');
+  }, 100);
+}
+
+function renderYoYChart(currentData, yoyData, key, chartId) {
+  if (!currentData || currentData.error) return '<div class="error">当年データが見つかりません</div>';
+  if (!yoyData || yoyData.error) return '<div class="error">前年データが見つかりません</div>';
+
+  const months = currentData.months || [];
+  let html = `<div class="chart-container"><canvas id="${chartId}"></canvas></div>`;
+  html += '<div class="table-container"><table><thead><tr><th>業種</th>';
+  for (let m of months) html += `<th>${m}</th>`;
+  html += '</tr></thead><tbody>';
+
+  for (let row of (currentData.rows || [])) {
+    html += `<tr><td>${row.genre || '不明'}（当年）</td>`;
+    for (let val of (row.values || [])) html += `<td>${formatNum(val)}</td>`;
+    html += '</tr>';
   }
 
-  const canvas = document.createElement('canvas');
-  container.appendChild(canvas);
-  const ctx = canvas.getContext('2d');
-
-  const labels = ['11月', '12月', '1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月'];
-
-  const thisYearValues = thisYearRow.slice(1, 13).map(v => v || 0);
-  const lastYearValues = lastYearRow.slice(1, 13).map(v => v || 0);
-  console.log('thisYearValues:', thisYearValues);
-  console.log('lastYearValues:', lastYearValues);
-
-  new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels,
-      datasets: [
-        {
-          label: '今年',
-          data: thisYearValues,
-          backgroundColor: '#fecaca',
-          borderColor: '#fecaca',
-          borderWidth: 1,
-          barThickness: 'flex'
-        },
-        {
-          label: '昨年',
-          data: lastYearValues,
-          backgroundColor: '#dbeafe',
-          borderColor: '#dbeafe',
-          borderWidth: 1,
-          barThickness: 'flex'
-        }
-      ]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: { position: 'top' },
-        tooltip: {
-          mode: 'index',
-          intersect: false,
-          backgroundColor: 'rgba(0, 0, 0, 0.8)',
-          titleColor: '#fff',
-          bodyColor: '#fff',
-          borderColor: '#ccc',
-          borderWidth: 1,
-          padding: 12,
-          callbacks: {
-            label: function(context) {
-              const value = context.parsed.y;
-              return context.dataset.label + ': ' + value.toLocaleString();
-            }
-          }
-        }
-      },
-      scales: {
-        x: { grid: { display: true } },
-        y: {
-          beginAtZero: true,
-          ticks: {
-            callback: v => v.toLocaleString()
-          }
-        }
-      }
-    }
-  });
+  html += '</tbody></table></div>';
+  return html;
 }
 
-function drawDualAxisYearOverYearChart(container, thisPeopleRow, thisHoursRow, lastPeopleRow, lastHoursRow) {
-  if (!thisPeopleRow || !thisHoursRow || !lastPeopleRow || !lastHoursRow) {
-    return;
-  }
-
-  const canvas = document.createElement('canvas');
-  container.appendChild(canvas);
-  const ctx = canvas.getContext('2d');
-
-  const labels = ['11月', '12月', '1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月'];
-
-  const thisPeopleValues = thisPeopleRow.slice(1, 13).map(v => v || 0);
-  const thisHoursValues = thisHoursRow.slice(1, 13).map(v => Math.round(v) || 0);
-  const lastPeopleValues = lastPeopleRow.slice(1, 13).map(v => v || 0);
-  const lastHoursValues = lastHoursRow.slice(1, 13).map(v => Math.round(v) || 0);
-
-  new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels,
-      datasets: [
-        {
-          label: '派遣時間（今年）',
-          data: thisHoursValues,
-          type: 'line',
-          borderColor: '#ef4444',
-          backgroundColor: 'transparent',
-          borderWidth: 2,
-          tension: 0.4,
-          yAxisID: 'y1',
-          fill: false
-        },
-        {
-          label: '派遣時間（昨年）',
-          data: lastHoursValues,
-          type: 'line',
-          borderColor: '#3b82f6',
-          backgroundColor: 'transparent',
-          borderWidth: 2,
-          tension: 0.4,
-          yAxisID: 'y1',
-          fill: false
-        },
-        {
-          label: '派遣人数（今年）',
-          data: thisPeopleValues,
-          type: 'bar',
-          backgroundColor: '#fecaca',
-          borderColor: '#fecaca',
-          borderWidth: 1,
-          yAxisID: 'y',
-          barThickness: 'flex'
-        },
-        {
-          label: '派遣人数（昨年）',
-          data: lastPeopleValues,
-          type: 'bar',
-          backgroundColor: '#dbeafe',
-          borderColor: '#dbeafe',
-          borderWidth: 1,
-          yAxisID: 'y',
-          barThickness: 'flex'
-        }
-      ]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: { position: 'top' },
-        tooltip: {
-          mode: 'index',
-          intersect: false,
-          backgroundColor: 'rgba(0, 0, 0, 0.8)',
-          titleColor: '#fff',
-          bodyColor: '#fff',
-          borderColor: '#ccc',
-          borderWidth: 1,
-          padding: 12
-        }
-      },
-      scales: {
-        x: { grid: { display: true } },
-        y: {
-          type: 'linear',
-          position: 'left',
-          title: {
-            display: true,
-            text: '派遣人数'
-          },
-          beginAtZero: true,
-          ticks: {
-            callback: v => v.toLocaleString()
-          }
-        },
-        y1: {
-          type: 'linear',
-          position: 'right',
-          title: {
-            display: true,
-            text: '派遣時間'
-          },
-          beginAtZero: true,
-          grid: { drawOnChartArea: false },
-          ticks: {
-            callback: v => v.toLocaleString()
-          }
-        }
-      }
-    }
-  });
+function initYoYChart(currentData, yoyData, key, chartId) {
+  // プレースホルダー実装 - 後から完成
+  console.log('YoY chart placeholder:', chartId);
 }
 
-function drawYearOverYearTable(container, thisYearRow, lastYearRow, title, isMonetary = false) {
-  if (!thisYearRow || !lastYearRow) return;
+function renderDispatchYoYChart(yoyData, key, chartId) {
+  if (!yoyData || yoyData.error) return '<div class="error">データが見つかりません</div>';
 
-  const labels = ['11月', '12月', '1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月'];
-  // PL データは slice(2, 14)、その他は slice(1, 13)
-  const thisYearSlice = isMonetary ? thisYearRow.slice(2, 14) : thisYearRow.slice(1, 13);
-  const lastYearSlice = lastYearRow.slice(1, 13);
+  const months = yoyData.months || [];
+  const prevYear = yoyData.previousYear?.[key] || [];
 
-  const thisYearValues = thisYearSlice.map(v => {
-    const num = v || 0;
-    return isMonetary ? Math.round(num / 1000) : num;
-  });
-  const lastYearValues = lastYearSlice.map(v => {
-    const num = v || 0;
-    return isMonetary ? Math.round(num / 1000) : num;
-  });
+  let html = `<div class="chart-container"><canvas id="${chartId}"></canvas></div>`;
+  html += '<div class="table-container"><table><thead><tr><th>区分</th>';
+  for (let m of months) html += `<th>${m}</th>`;
+  html += '</tr></thead><tbody>';
+  html += '<tr><td>前年</td>';
+  for (let val of prevYear) html += `<td>${formatNum(val)}</td>`;
+  html += '</tr></tbody></table></div>';
 
-  // 単位表記
-  if (isMonetary) {
-    const unitDiv = document.createElement('div');
-    unitDiv.textContent = '（単位：万円）';
-    unitDiv.style.fontSize = '12px';
-    unitDiv.style.color = '#6b7280';
-    unitDiv.style.marginTop = '16px';
-    unitDiv.style.marginBottom = '8px';
-    container.appendChild(unitDiv);
-  }
-
-  const table = document.createElement('table');
-  table.style.width = '100%';
-  table.style.borderCollapse = 'collapse';
-  table.style.marginTop = isMonetary ? '8px' : '16px';
-  table.style.fontSize = '14px';
-
-  // ヘッダー行（月を表示）
-  const headerRow = document.createElement('tr');
-  headerRow.style.backgroundColor = '#f3f4f6';
-  headerRow.style.borderBottom = '2px solid #d1d5db';
-
-  const labelHeader = document.createElement('th');
-  labelHeader.textContent = '';
-  labelHeader.style.padding = '8px';
-  labelHeader.style.textAlign = 'center';
-  labelHeader.style.borderRight = '1px solid #d1d5db';
-  headerRow.appendChild(labelHeader);
-
-  labels.forEach(month => {
-    const th = document.createElement('th');
-    th.textContent = month;
-    th.style.padding = '8px';
-    th.style.textAlign = 'center';
-    th.style.borderRight = '1px solid #d1d5db';
-    headerRow.appendChild(th);
-  });
-
-  table.appendChild(headerRow);
-
-  // 今年の行
-  const thisYearRow_el = document.createElement('tr');
-  thisYearRow_el.style.borderBottom = '1px solid #e5e7eb';
-
-  const thisYearLabel = document.createElement('td');
-  thisYearLabel.textContent = '今年';
-  thisYearLabel.style.padding = '8px';
-  thisYearLabel.style.textAlign = 'center';
-  thisYearLabel.style.borderRight = '1px solid #e5e7eb';
-  thisYearLabel.style.fontWeight = '500';
-  thisYearLabel.style.color = '#ef4444';
-  thisYearRow_el.appendChild(thisYearLabel);
-
-  thisYearValues.forEach(value => {
-    const td = document.createElement('td');
-    td.textContent = value.toLocaleString();
-    td.style.padding = '8px';
-    td.style.textAlign = 'right';
-    td.style.borderRight = '1px solid #e5e7eb';
-    thisYearRow_el.appendChild(td);
-  });
-
-  table.appendChild(thisYearRow_el);
-
-  // 昨年の行
-  const lastYearRow_el = document.createElement('tr');
-  lastYearRow_el.style.borderBottom = '1px solid #e5e7eb';
-
-  const lastYearLabel = document.createElement('td');
-  lastYearLabel.textContent = '昨年';
-  lastYearLabel.style.padding = '8px';
-  lastYearLabel.style.textAlign = 'center';
-  lastYearLabel.style.borderRight = '1px solid #e5e7eb';
-  lastYearLabel.style.fontWeight = '500';
-  lastYearLabel.style.color = '#3b82f6';
-  lastYearRow_el.appendChild(lastYearLabel);
-
-  lastYearValues.forEach(value => {
-    const td = document.createElement('td');
-    td.textContent = value.toLocaleString();
-    td.style.padding = '8px';
-    td.style.textAlign = 'right';
-    td.style.borderRight = '1px solid #e5e7eb';
-    lastYearRow_el.appendChild(td);
-  });
-
-  table.appendChild(lastYearRow_el);
-
-  container.appendChild(table);
+  return html;
 }
 
-function drawDualAxisYearOverYearTable(container, thisPeopleRow, thisHoursRow, lastPeopleRow, lastHoursRow) {
-  if (!thisPeopleRow || !thisHoursRow || !lastPeopleRow || !lastHoursRow) return;
-
-  const labels = ['11月', '12月', '1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月'];
-  const thisPeopleValues = thisPeopleRow.slice(1, 13).map(v => v || 0);
-  const thisHoursValues = thisHoursRow.slice(1, 13).map(v => Math.round(v) || 0);
-  const lastPeopleValues = lastPeopleRow.slice(1, 13).map(v => v || 0);
-  const lastHoursValues = lastHoursRow.slice(1, 13).map(v => Math.round(v) || 0);
-
-  const table = document.createElement('table');
-  table.style.width = '100%';
-  table.style.borderCollapse = 'collapse';
-  table.style.marginTop = '16px';
-  table.style.fontSize = '14px';
-
-  // ヘッダー行（月を表示）
-  const headerRow = document.createElement('tr');
-  headerRow.style.backgroundColor = '#f3f4f6';
-  headerRow.style.borderBottom = '2px solid #d1d5db';
-
-  const labelHeader = document.createElement('th');
-  labelHeader.textContent = '';
-  labelHeader.style.padding = '8px';
-  labelHeader.style.textAlign = 'center';
-  labelHeader.style.borderRight = '1px solid #d1d5db';
-  headerRow.appendChild(labelHeader);
-
-  labels.forEach(month => {
-    const th = document.createElement('th');
-    th.textContent = month;
-    th.style.padding = '8px';
-    th.style.textAlign = 'center';
-    th.style.borderRight = '1px solid #d1d5db';
-    headerRow.appendChild(th);
-  });
-
-  table.appendChild(headerRow);
-
-  // 派遣人数（今年）の行
-  const thisPeopleRow_el = document.createElement('tr');
-  thisPeopleRow_el.style.borderBottom = '1px solid #e5e7eb';
-
-  const thisPeopleLabel = document.createElement('td');
-  thisPeopleLabel.textContent = '派遣人数（今年）';
-  thisPeopleLabel.style.padding = '8px';
-  thisPeopleLabel.style.textAlign = 'center';
-  thisPeopleLabel.style.borderRight = '1px solid #e5e7eb';
-  thisPeopleLabel.style.fontWeight = '500';
-  thisPeopleLabel.style.color = '#ef4444';
-  thisPeopleRow_el.appendChild(thisPeopleLabel);
-
-  thisPeopleValues.forEach(value => {
-    const td = document.createElement('td');
-    td.textContent = value.toLocaleString();
-    td.style.padding = '8px';
-    td.style.textAlign = 'right';
-    td.style.borderRight = '1px solid #e5e7eb';
-    thisPeopleRow_el.appendChild(td);
-  });
-
-  table.appendChild(thisPeopleRow_el);
-
-  // 派遣人数（昨年）の行
-  const lastPeopleRow_el = document.createElement('tr');
-  lastPeopleRow_el.style.borderBottom = '1px solid #e5e7eb';
-
-  const lastPeopleLabel = document.createElement('td');
-  lastPeopleLabel.textContent = '派遣人数（昨年）';
-  lastPeopleLabel.style.padding = '8px';
-  lastPeopleLabel.style.textAlign = 'center';
-  lastPeopleLabel.style.borderRight = '1px solid #e5e7eb';
-  lastPeopleLabel.style.fontWeight = '500';
-  lastPeopleLabel.style.color = '#3b82f6';
-  lastPeopleRow_el.appendChild(lastPeopleLabel);
-
-  lastPeopleValues.forEach(value => {
-    const td = document.createElement('td');
-    td.textContent = value.toLocaleString();
-    td.style.padding = '8px';
-    td.style.textAlign = 'right';
-    td.style.borderRight = '1px solid #e5e7eb';
-    lastPeopleRow_el.appendChild(td);
-  });
-
-  table.appendChild(lastPeopleRow_el);
-
-  // 派遣時間（今年）の行
-  const thisHoursRow_el = document.createElement('tr');
-  thisHoursRow_el.style.borderBottom = '1px solid #e5e7eb';
-
-  const thisHoursLabel = document.createElement('td');
-  thisHoursLabel.textContent = '派遣時間（今年）';
-  thisHoursLabel.style.padding = '8px';
-  thisHoursLabel.style.textAlign = 'center';
-  thisHoursLabel.style.borderRight = '1px solid #e5e7eb';
-  thisHoursLabel.style.fontWeight = '500';
-  thisHoursLabel.style.color = '#f59e0b';
-  thisHoursRow_el.appendChild(thisHoursLabel);
-
-  thisHoursValues.forEach(value => {
-    const td = document.createElement('td');
-    td.textContent = value.toLocaleString();
-    td.style.padding = '8px';
-    td.style.textAlign = 'right';
-    td.style.borderRight = '1px solid #e5e7eb';
-    thisHoursRow_el.appendChild(td);
-  });
-
-  table.appendChild(thisHoursRow_el);
-
-  // 派遣時間（昨年）の行
-  const lastHoursRow_el = document.createElement('tr');
-  lastHoursRow_el.style.borderBottom = '1px solid #e5e7eb';
-
-  const lastHoursLabel = document.createElement('td');
-  lastHoursLabel.textContent = '派遣時間（昨年）';
-  lastHoursLabel.style.padding = '8px';
-  lastHoursLabel.style.textAlign = 'center';
-  lastHoursLabel.style.borderRight = '1px solid #e5e7eb';
-  lastHoursLabel.style.fontWeight = '500';
-  lastHoursLabel.style.color = '#06b6d4';
-  lastHoursRow_el.appendChild(lastHoursLabel);
-
-  lastHoursValues.forEach(value => {
-    const td = document.createElement('td');
-    td.textContent = value.toLocaleString();
-    td.style.padding = '8px';
-    td.style.textAlign = 'right';
-    td.style.borderRight = '1px solid #e5e7eb';
-    lastHoursRow_el.appendChild(td);
-  });
-
-  table.appendChild(lastHoursRow_el);
-
-  container.appendChild(table);
+function initDispatchYoYChart(yoyData, key, chartId) {
+  // プレースホルダー実装 - 後から完成
+  console.log('Dispatch YoY chart placeholder:', chartId);
 }
 
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', init);
-} else {
-  init();
+// ============================================================
+// パイプラインタブ
+// ============================================================
+function renderPipeline() {
+  let html = '<div class="card"><div class="text-center text-gray-500 py-8">パイプラインデータは追って実装予定</div></div>';
+  document.getElementById('pipeline-content').innerHTML = html;
 }
+
+// ============================================================
+// UTILITIES
+// ============================================================
+function formatNum(v) {
+  if (!v && v !== 0) return '-';
+  if (typeof v !== 'number') v = parseFloat(v);
+  if (isNaN(v)) return '-';
+  if (v >= 1000000) return (v / 1000000).toFixed(1) + 'M';
+  if (v >= 1000) return (v / 1000).toFixed(1) + 'K';
+  return v.toFixed(0);
+}
+
+// Initialize on load
+window.addEventListener('DOMContentLoaded', init);
 </script>
 
 </body>
