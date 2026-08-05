@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>データ確認用デバッグページ</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { font-family: "Hiragino Sans", "Noto Sans JP", monospace; }
+    table { width: 100%; border-collapse: collapse; font-size: 11px; margin: 16px 0; }
+    th, td { border: 1px solid #ccc; padding: 6px; text-align: right; }
+    th { background: #f0f0f0; font-weight: bold; }
+    td:first-child, th:first-child { text-align: left; }
+    .section { margin: 20px 0; padding: 12px; border: 1px solid #ddd; border-radius: 6px; }
+    .section-title { font-weight: bold; font-size: 14px; margin-bottom: 10px; background: #e0e0e0; padding: 8px; }
+    .error { color: red; }
+    pre { background: #f5f5f5; padding: 8px; overflow-x: auto; font-size: 10px; }
+  </style>
+</head>
+<body class="bg-gray-50">
+
+<div class="max-w-7xl mx-auto px-4 py-6">
+  <h1 class="text-2xl font-bold mb-6">GAS データ取得確認用デバッグページ</h1>
+
+  <div id="loading" class="text-center py-10">読み込み中...</div>
+  <div id="content"></div>
+</div>
+
+<script>
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbxFui01j2eZpm-dAtkp94OC8kj-fEgLTbSnsnHcKHnpwflCqyKWOHwCNsnqSBv4vxjKWg/exec';
+
+async function init() {
+  try {
+    console.log('Fetching data...');
+    const response = await fetch(GAS_URL, { mode: 'cors' });
+    const data = await response.json();
+
+    console.log('Data loaded:', data);
+    renderDebug(data);
+  } catch (err) {
+    document.getElementById('content').innerHTML = `<div class="error text-lg">エラー: ${err.message}</div>`;
+  }
+}
+
+function renderDebug(data) {
+  const loading = document.getElementById('loading');
+  const content = document.getElementById('content');
+
+  loading.style.display = 'none';
+
+  let html = '';
+
+  // 更新時刻
+  if (data.updatedAt) {
+    html += `<div class="mb-4"><strong>最終更新:</strong> ${new Date(data.updatedAt).toLocaleString('ja-JP')}</div>`;
+  }
+
+  const sheets = data.sheets || {};
+
+  // ========== 会計タブ ==========
+  html += '<div class="section">';
+  html += '<div class="section-title">会計タブ</div>';
+
+  // PL 実績
+  html += renderPLTable(sheets.PL_actual, '実績+見込PL');
+  html += renderPLTable(sheets.PL_budget, '修正後予算PL');
+  html += renderCFTable(sheets.CF);
+  html += renderSegmentTable(sheets.PL_direct, '直接雇用PL');
+  html += renderSegmentTable(sheets.PL_dispatch, '派遣PL');
+
+  html += '</div>';
+
+  // ========== 事業指標タブ ==========
+  html += '<div class="section">';
+  html += '<div class="section-title">事業指標タブ</div>';
+
+  html += '<div><strong>業種別支援人数</strong> (【データ数チェック】)</div>';
+  html += renderGenreTable(sheets.genre_support);
+
+  html += '<div style="margin-top: 16px;"><strong>業種別紹介人数</strong> (【データ数チェック】)</div>';
+  html += renderGenreTable(sheets.genre_intro);
+
+  html += '<div style="margin-top: 16px;"><strong>派遣重要変数</strong></div>';
+  html += renderDispatchVariablesTable(sheets.dispatch_variables);
+
+  html += '</div>';
+
+  // ========== 昨対比タブ ==========
+  html += '<div class="section">';
+  html += '<div class="section-title">昨対比タブ</div>';
+  html += renderYoYTable(sheets.yoy_comparison);
+  html += '</div>';
+
+  // ========== パイプラインタブ ==========
+  html += '<div class="section">';
+  html += '<div class="section-title">パイプラインタブ</div>';
+
+  html += '<div><strong>全体ファネル別金額（サマリ）</strong></div>';
+  html += renderPipelineSummaryTable(sheets.pipeline_summary);
+
+  html += '<div style="margin-top: 16px;"><strong>02 解決策合意案件一覧（上位5社）</strong></div>';
+  html += renderPipelineStageTable(sheets.pipeline_02_solution);
+
+  html += '<div style="margin-top: 16px;"><strong>03 価格合意案件一覧（全案件）</strong></div>';
+  html += renderPipelineStageTable(sheets.pipeline_03_pricing);
+
+  html += '</div>';
+
+  content.innerHTML = html;
+}
+
+function renderPLTable(data, title) {
+  if (!data || data.error) {
+    return `<div class="error">${title}: ${data?.error || 'データなし'}</div>`;
+  }
+
+  const months = data.months || [];
+  let html = `<div style="margin: 12px 0;"><strong>${title}</strong></div>`;
+  html += '<table><thead><tr><th>項目</th>';
+  for (let m of months) html += `<th>${m}</th>`;
+  html += '</tr></thead><tbody>';
+
+  for (let row of (data.rows || [])) {
+    html += `<tr><td>${row.item}</td>`;
+    for (let val of (row.values || [])) {
+      html += `<td>${formatNum(val)}</td>`;
+    }
+    html += '</tr>';
+  }
+
+  html += '</tbody></table>';
+  return html;
+}
+
+function renderCFTable(data) {
+  if (!data || data.error) return `<div class="error">CF: ${data?.error || 'データなし'}</div>`;
+
+  const months = data.months || [];
+  let html = '<div style="margin: 12px 0;"><strong>実績+見込CF</strong></div>';
+  html += '<table><thead><tr><th>項目</th>';
+  for (let m of months) html += `<th>${m}</th>`;
+  html += '</tr></thead><tbody>';
+
+  for (let row of (data.rows || [])) {
+    html += `<tr><td>${row.item}</td>`;
+    for (let val of (row.values || [])) {
+      html += `<td>${formatNum(val)}</td>`;
+    }
+    html += '</tr>';
+  }
+
+  html += '</tbody></table>';
+  return html;
+}
+
+function renderSegmentTable(data, title) {
+  if (!data || data.error) return `<div class="error">${title}: ${data?.error || 'データなし'}</div>`;
+
+  const months = data.months || [];
+  let html = `<div style="margin: 12px 0;"><strong>${title}</strong></div>`;
+  html += '<table><thead><tr><th>項目</th>';
+  for (let m of months) html += `<th>${m}</th>`;
+  html += '</tr></thead><tbody>';
+
+  for (let row of (data.rows || [])) {
+    html += `<tr><td>${row.item}</td>`;
+    for (let val of (row.values || [])) {
+      html += `<td>${formatNum(val)}</td>`;
+    }
+    html += '</tr>';
+  }
+
+  html += '</tbody></table>';
+  return html;
+}
+
+function renderGenreTable(data) {
+  if (!data || data.error) return `<div class="error">${data?.error || 'データなし'}</div>`;
+
+  const months = data.months || [];
+  let html = `<table style="font-size: 10px;"><thead><tr><th>業種</th>`;
+  for (let m of months) html += `<th>${m}</th>`;
+  html += `<th style="background: #ffeb3b;">データ数</th></tr></thead><tbody>`;
+
+  for (let row of (data.rows || [])) {
+    const valuesCount = (row.values || []).length;
+    const mismatch = valuesCount !== months.length;
+    html += `<tr style="${mismatch ? 'background: #ffcccc;' : ''}"><td>${row.genre || '（空白）'}</td>`;
+    for (let val of (row.values || [])) {
+      html += `<td>${val}</td>`;
+    }
+    html += `<td style="background: ${mismatch ? '#ffcccc' : '#ccffcc'}; font-weight: bold;">${valuesCount}/${months.length}</td></tr>`;
+  }
+
+  html += '</tbody></table>';
+  return html;
+}
+
+function renderDispatchVariablesTable(data) {
+  if (!data || data.error) return `<div class="error">${data?.error || 'データなし'}</div>`;
+
+  const months = data.months || [];
+  let html = '<table><thead><tr><th>項目</th>';
+  for (let m of months) html += `<th>${m}</th>`;
+  html += '</tr></thead><tbody>';
+
+  for (let row of (data.rows || [])) {
+    html += `<tr><td>${row.item}</td>`;
+    for (let val of (row.values || [])) {
+      html += `<td>${formatNum(val)}</td>`;
+    }
+    html += '</tr>';
+  }
+
+  html += '</tbody></table>';
+  return html;
+}
+
+function renderYoYTable(data) {
+  if (!data || data.error) return `<div class="error">${data?.error || 'データなし'}</div>`;
+
+  const months = data.months || [];
+  const prev = data.previousYear || {};
+
+  let html = '<table><thead><tr><th>項目</th>';
+  for (let m of months) html += `<th>${m}</th>`;
+  html += '</tr></thead><tbody>';
+
+  const items = [
+    { label: '紹介人数（前年）', values: prev.intro },
+    { label: '支援人数（前年）', values: prev.support },
+    { label: '派遣総人数（前年）', values: prev.dispatch_people },
+    { label: '派遣総時間（前年）', values: prev.dispatch_hours }
+  ];
+
+  for (let item of items) {
+    html += `<tr><td>${item.label}</td>`;
+    for (let val of (item.values || [])) {
+      html += `<td>${formatNum(val)}</td>`;
+    }
+    html += '</tr>';
+  }
+
+  html += '</tbody></table>';
+  return html;
+}
+
+function renderPipelineSummaryTable(data) {
+  if (!data || data.error) return `<div class="error">${data?.error || 'データなし'}</div>`;
+
+  const months = data.months || [];
+  const stages = data.stages || {};
+
+  let html = '<table><thead><tr><th>ステージ</th>';
+  for (let m of months) html += `<th>${m}</th>`;
+  html += '</tr></thead><tbody>';
+
+  const stageLabels = {
+    '01_awareness': '01 課題合意',
+    '02_solution': '02 解決策合意',
+    '03_pricing': '03 価格合意'
+  };
+
+  for (let stageKey in stageLabels) {
+    const values = stages[stageKey] || [];
+    html += `<tr><td>${stageLabels[stageKey]}</td>`;
+    for (let val of values) {
+      html += `<td>${formatNum(val)}</td>`;
+    }
+    html += '</tr>';
+  }
+
+  html += '</tbody></table>';
+  return html;
+}
+
+function renderPipelineStageTable(data) {
+  if (!data || data.error) return `<div class="error">${data?.error || 'データなし'}</div>`;
+
+  const months = data.months || [];
+  const stageData = data.data || {};
+
+  let html = '';
+  for (let month of months) {
+    const items = stageData[month] || [];
+    html += `<div style="margin: 8px 0; font-weight: bold;">${month} (${items.length}件)</div>`;
+
+    if (items.length === 0) {
+      html += '<div style="color: #999;">案件なし</div>';
+      continue;
+    }
+
+    html += '<table style="font-size: 10px;"><thead><tr><th>会社</th><th>金額</th><th>人数</th></tr></thead><tbody>';
+    for (let item of items) {
+      html += `<tr><td>${item.company}</td><td>${formatNum(item.amount)}</td><td>${item.people}</td></tr>`;
+    }
+    html += '</tbody></table>';
+  }
+
+  return html;
+}
+
+function formatNum(v) {
+  if (!v && v !== 0) return '-';
+  if (typeof v !== 'number') v = parseFloat(v);
+  if (isNaN(v)) return '-';
+  if (v >= 1000000) return (v / 1000000).toFixed(1) + 'M';
+  if (v >= 1000) return (v / 1000).toFixed(1) + 'K';
+  return v.toFixed(0);
+}
+
+window.addEventListener('DOMContentLoaded', init);
+</script>
+
+</body>
+</html>
