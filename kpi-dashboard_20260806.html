@@ -192,12 +192,14 @@ function renderMonthlyProgress(actual, budget) {
 
     const actualValue = actualRow?.values?.[currentMonthIdx];
     const budgetValue = budgetRow?.values?.[currentMonthIdx];
-    const ratio = (budgetValue && actualValue !== undefined) ? ((actualValue / budgetValue) * 100).toFixed(1) : '-';
+    const ratioNum = (budgetValue && actualValue !== undefined) ? ((actualValue / budgetValue) * 100) : null;
+    const ratio = ratioNum !== null ? ratioNum.toFixed(1) : '-';
+    const ratioColor = ratioNum !== null ? (ratioNum >= 100 ? '#16a34a' : '#dc2626') : '#333';
 
     html += `<tr><td>${itemName}</td>`;
     html += `<td>${formatNum(actualValue)}</td>`;
     html += `<td>${formatNum(budgetValue)}</td>`;
-    html += `<td>${ratio}%</td></tr>`;
+    html += `<td style="color: ${ratioColor}; font-weight: 600;">${ratio}%</td></tr>`;
   }
 
   html += '</tbody></table></div></div>';
