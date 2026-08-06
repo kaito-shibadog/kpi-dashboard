@@ -175,7 +175,7 @@ function renderMonthlyProgress(actual, budget) {
   if (!actual || actual.error) return '';
   if (!budget || budget.error) return '';
 
-  const currentMonthIdx = 7; // 8月（0-indexed）
+  const currentMonthIdx = 9; // 8月（0-indexed: 11月=0, 12月=1, ... 8月=9）
   const actualRows = actual.rows || [];
   const budgetRows = budget.rows || [];
 
