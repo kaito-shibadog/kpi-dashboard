@@ -175,7 +175,8 @@ function renderMonthlyProgress(actual, budget) {
   if (!actual || actual.error) return '';
   if (!budget || budget.error) return '';
 
-  const currentMonthIdx = 9; // 8月（0-indexed: 11月=0, 12月=1, ... 8月=9）
+  // GAS から取得した現在の進捗月を使用（ない場合は8月で デフォルト）
+  const currentMonthIdx = allData.currentMonthIndex !== undefined ? allData.currentMonthIndex : 9;
   const actualRows = actual.rows || [];
   const budgetRows = budget.rows || [];
 
