@@ -254,7 +254,16 @@ function initGenreChart(genreData, chartId) {
       plugins: {
         legend: { position: 'top' },
         tooltip: {
+          mode: 'index',
+          intersect: false,
+          padding: 12,
+          backgroundColor: 'rgba(0, 0, 0, 0.8)',
+          titleFont: { size: 14 },
+          bodyFont: { size: 13 },
           callbacks: {
+            title: (context) => {
+              return filteredMonths[context[0].dataIndex] || '';
+            },
             label: (context) => {
               return `${context.dataset.label}: ${context.parsed.y}`;
             }
