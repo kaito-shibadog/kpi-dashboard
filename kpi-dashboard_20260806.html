@@ -370,23 +370,33 @@ function initPLComparisonChart(actual, budget) {
 function renderCFChart(cfData) {
   if (!cfData || cfData.error) return '<div style="color:red;">CFデータなし</div>';
 
-  const months = cfData.months || [];
-  const range = getMonthIndexRange(currentPeriod);
+  const currentMonthIdx = allData.currentMonthIndex !== undefined ? allData.currentMonthIndex : 9;
 
   let html = '<div class="chart-container"><canvas id="cf-chart"></canvas></div>';
-  html += '<div class="table-container"><table><thead><tr><th>項目</th>';
-  for (let idx of range) {
-    if (idx < months.length) html += `<th>${months[idx]}</th>`;
-  }
-  html += '</tr></thead><tbody>';
-  for (let row of (cfData.rows || [])) {
-    html += `<tr><td>${row.item}</td>`;
-    for (let idx of range) {
-      if (idx < (row.values || []).length) html += `<td>${formatNum(row.values[idx])}</td>`;
-    }
-    html += '</tr>';
-  }
-  html += '</tbody></table></div>';
+
+  // バーンレート・ランウェイを大きく表示
+  const burnRateRow = (cfData.rows || []).find(r => r.item === 'バーンレート');
+  const runwayRow = (cfData.rows || []).find(r => r.item === '月末時点ランウェイ');
+
+  const burnRate = burnRateRow?.values?.[currentMonthIdx];
+  const runway = runwayRow?.values?.[currentMonthIdx];
+
+  html += '<div style="display: flex; gap: 24px; margin-top: 24px;">';
+
+  // バーンレート
+  html += '<div style="flex: 1; padding: 20px; background: #fef2f2; border-radius: 8px; border: 1px solid #fecaca;">';
+  html += '<div style="font-size: 12px; color: #991b1b; font-weight: 600; margin-bottom: 8px;">バーンレート（月次）</div>';
+  html += `<div style="font-size: 32px; font-weight: 700; color: #dc2626;">${formatNum(burnRate)}</div>`;
+  html += '</div>';
+
+  // ランウェイ
+  html += '<div style="flex: 1; padding: 20px; background: #eff6ff; border-radius: 8px; border: 1px solid #bfdbfe;">';
+  html += '<div style="font-size: 12px; color: #1e40af; font-weight: 600; margin-bottom: 8px;">ランウェイ（月数）</div>';
+  html += `<div style="font-size: 32px; font-weight: 700; color: #2563eb;">${formatNum(runway)}</div>`;
+  html += '</div>';
+
+  html += '</div>';
+
   return html;
 }
 
