@@ -465,24 +465,9 @@ function initSegmentPLChart(segmentData, chartId) {
   const sales = (segmentData.rows?.find(r => r.item === '売上高合計') || {}).values || [];
   const gp = (segmentData.rows?.find(r => r.item === '売上総利益') || {}).values || [];
   const op = (segmentData.rows?.find(r => r.item === '営業利益') || {}).values || [];
+  const opAfter = (segmentData.rows?.find(r => r.item === '営業利益(本社費用割賦後)') || {}).values || [];
 
   const filter = (vals) => range.map(i => vals[i] ?? null);
-
-  const tooltipItems = (context) => {
-    const lines = [];
-    for (let i = 0; i < context[0].chart.data.datasets.length; i++) {
-      const dataset = context[0].chart.data.datasets[i];
-      const value = dataset.data[context[0].dataIndex];
-      if (value !== null && value !== undefined) {
-        lines.push({
-          label: dataset.label,
-          value: formatNum(value),
-          borderColor: dataset.borderColor
-        });
-      }
-    }
-    return lines;
-  };
 
   chartInstances[chartId] = new Chart(ctx, {
     type: 'line',
@@ -493,15 +478,17 @@ function initSegmentPLChart(segmentData, chartId) {
           label: '売上高合計',
           data: filter(sales),
           borderColor: '#2563eb',
-          backgroundColor: 'rgba(37, 99, 235, 0.1)',
+          backgroundColor: 'transparent',
+          borderWidth: 2,
           tension: 0.4,
-          fill: true
+          fill: false
         },
         {
           label: '売上総利益',
           data: filter(gp),
           borderColor: '#059669',
-          backgroundColor: 'rgba(5, 150, 105, 0.1)',
+          backgroundColor: 'transparent',
+          borderWidth: 2,
           tension: 0.4,
           fill: false
         },
@@ -509,7 +496,18 @@ function initSegmentPLChart(segmentData, chartId) {
           label: '営業利益',
           data: filter(op),
           borderColor: '#dc2626',
-          backgroundColor: 'rgba(220, 38, 38, 0.1)',
+          backgroundColor: 'transparent',
+          borderWidth: 2,
+          tension: 0.4,
+          fill: false
+        },
+        {
+          label: '営業利益(本社費用割賦後)',
+          data: filter(opAfter),
+          borderColor: '#f97316',
+          backgroundColor: 'transparent',
+          borderWidth: 2,
+          borderDash: [5, 5],
           tension: 0.4,
           fill: false
         }
@@ -522,20 +520,38 @@ function initSegmentPLChart(segmentData, chartId) {
         legend: { position: 'top' },
         tooltip: {
           mode: 'index',
+          intersect: false,
+          padding: 12,
+          backgroundColor: 'rgba(0, 0, 0, 0.8)',
+          titleFont: { size: 14 },
+          bodyFont: { size: 13 },
           callbacks: {
-            afterLabel: (context) => {
-              const lines = tooltipItems([context]);
-              return lines.map(l => `${l.label}: ${l.value}`).join('\n');
+            title: (context) => {
+              return filteredMonths[context[0].dataIndex] || '';
+            },
+            label: (context) => {
+              return `${context.dataset.label}: ${formatNum(context.parsed.y)}`;
             }
           }
         }
       },
       scales: {
         y: {
-          ticks: { callback: v => formatNum(v) },
-          plugins: {
-            filler: {
-              propagate: true
+          beginAtZero: true,
+          ticks: {
+            callback: v => formatNum(v)
+          },
+          grid: {
+            drawBorder: true,
+            drawOnChartArea: true,
+            drawTicks: true,
+            color: (context) => {
+              if (context.tick.value === 0) return '#999';
+              return '#e5e7eb';
+            },
+            lineWidth: (context) => {
+              if (context.tick.value === 0) return 2;
+              return 1;
             }
           }
         }
