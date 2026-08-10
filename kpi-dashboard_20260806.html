@@ -381,12 +381,13 @@ function renderCFChart(cfData) {
   const burnRate = burnRateRow?.values?.[currentMonthIdx];
   const runway = runwayRow?.values?.[currentMonthIdx];
 
-  html += '<div style="display: flex; gap: 24px; margin-top: 24px;">';
+  html += '<div style="display: flex; gap: 24px; margin-top: 24px; margin-bottom: 24px;">';
 
   // バーンレート
   html += '<div style="flex: 1; padding: 20px; background: #fef2f2; border-radius: 8px; border: 1px solid #fecaca;">';
   html += '<div style="font-size: 12px; color: #991b1b; font-weight: 600; margin-bottom: 8px;">バーンレート（月次）</div>';
-  html += `<div style="font-size: 32px; font-weight: 700; color: #dc2626;">${formatNum(burnRate)}</div>`;
+  html += `<div style="font-size: 32px; font-weight: 700; color: #dc2626; margin-bottom: 12px;">${formatNum(burnRate)}</div>`;
+  html += '<div style="font-size: 11px; color: #7f1d1d; line-height: 1.5;">※バーンレートについては進行月の定常CF(固定in-固定out)から計算したもので、実際の現預金推移は上記グラフを参照</div>';
   html += '</div>';
 
   // ランウェイ
@@ -396,6 +397,9 @@ function renderCFChart(cfData) {
   html += '</div>';
 
   html += '</div>';
+
+  // グラフ下部の注記
+  html += '<div style="font-size: 11px; color: #666; margin-top: 8px;">※現預金担保の短期借入3,000万円を含む</div>';
 
   return html;
 }
@@ -429,7 +433,17 @@ function initCFChart(cfData) {
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      plugins: { legend: { position: 'top' } },
+      plugins: {
+        legend: { position: 'top' },
+        tooltip: {
+          callbacks: {
+            label: (context) => {
+              const value = context.parsed.y;
+              return '現預金残高: ' + formatNum(value);
+            }
+          }
+        }
+      },
       scales: { y: { ticks: { callback: v => formatNum(v) } } }
     }
   });
