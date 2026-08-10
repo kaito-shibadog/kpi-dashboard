@@ -318,7 +318,14 @@ function renderDispatchVariables(dispatchData, chartId) {
     html += `<tr><td>${row.item}</td>`;
     for (let idx of range) {
       if (idx < (row.values || []).length) {
-        html += `<td>${formatNum(row.values[idx])}</td>`;
+        const value = row.values[idx];
+        // 平均時給は1,680のように表示（小数点以下四捨五入）
+        if (row.item === '平均時給') {
+          const rounded = Math.round(value);
+          html += `<td>${rounded.toLocaleString('ja-JP')}</td>`;
+        } else {
+          html += `<td>${formatNum(value)}</td>`;
+        }
       } else {
         html += '<td>-</td>';
       }
@@ -356,7 +363,7 @@ function initDispatchVariablesChart(dispatchData, chartId) {
           label: '総時間',
           data: filter(totalHours),
           type: 'line',
-          borderColor: '#2563eb',
+          borderColor: '#f97316',
           backgroundColor: 'transparent',
           borderWidth: 2,
           tension: 0.4,
@@ -367,8 +374,8 @@ function initDispatchVariablesChart(dispatchData, chartId) {
           label: '総人数',
           data: filter(totalPeople),
           type: 'bar',
-          backgroundColor: '#16a34a',
-          borderColor: '#16a34a',
+          backgroundColor: '#86efac',
+          borderColor: '#86efac',
           borderWidth: 0,
           yAxisID: 'y1'
         }
