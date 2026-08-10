@@ -1464,17 +1464,17 @@ function renderPipeline() {
     html += '</div>';
   }
 
-  if (sheets.pipeline_02_solution) {
-    html += '<div class="card">';
-    html += '<div class="card-title">02 解決策合意案件一覧（上位5社）</div>';
-    html += renderPipelineStageTable(sheets.pipeline_02_solution);
-    html += '</div>';
-  }
-
   if (sheets.pipeline_03_pricing) {
     html += '<div class="card">';
     html += '<div class="card-title">03 価格合意案件一覧（全案件）</div>';
     html += renderPipelineStageTable(sheets.pipeline_03_pricing);
+    html += '</div>';
+  }
+
+  if (sheets.pipeline_02_solution) {
+    html += '<div class="card">';
+    html += '<div class="card-title">02 解決策合意案件一覧（上位5社）</div>';
+    html += renderPipelineStageTable(sheets.pipeline_02_solution);
     html += '</div>';
   }
 
