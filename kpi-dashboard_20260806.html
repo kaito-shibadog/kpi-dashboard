@@ -592,22 +592,35 @@ function renderIndicatorYoYChart(yoY, dataKey, chartId) {
 
   let html = `<div class="chart-container" style="height: 400px;"><canvas id="${chartId}"></canvas></div>`;
 
-  // テーブル：月ごとの昨年と今年を比較
-  html += '<div class="table-container"><table><thead><tr><th>月</th><th>昨年</th><th>今年</th></tr></thead><tbody>';
-
+  // テーブル：昨年と今年の月別比較（横長）
   const currentYearValues = yoY.currentYear?.[dataKey] || [];
   const previousYearValues = yoY.previousYear?.[dataKey] || [];
 
+  html += '<div class="table-container"><table><thead><tr><th>指標</th>';
+  for (let idx of range) {
+    if (idx < months.length) html += `<th>${months[idx]}</th>`;
+  }
+  html += '</tr></thead><tbody>';
+
+  // 昨年の行
+  html += '<tr><td>昨年</td>';
   for (let idx of range) {
     if (idx < months.length) {
-      const lastYear = previousYearValues[idx] || 0;
-      const thisYear = currentYearValues[idx] || 0;
-
-      html += `<tr><td>${months[idx]}</td>`;
-      html += `<td>${formatNum(lastYear)}</td>`;
-      html += `<td>${formatNum(thisYear)}</td></tr>`;
+      const value = previousYearValues[idx] || 0;
+      html += `<td>${formatNum(value)}</td>`;
     }
   }
+  html += '</tr>';
+
+  // 今年の行
+  html += '<tr><td>今年</td>';
+  for (let idx of range) {
+    if (idx < months.length) {
+      const value = currentYearValues[idx] || 0;
+      html += `<td>${formatNum(value)}</td>`;
+    }
+  }
+  html += '</tr>';
 
   html += '</tbody></table></div>';
   return html;
