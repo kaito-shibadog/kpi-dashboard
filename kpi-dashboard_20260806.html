@@ -1464,6 +1464,20 @@ function renderPipeline() {
     html += '</div>';
   }
 
+  if (sheets.pipeline_02_solution) {
+    html += '<div class="card">';
+    html += '<div class="card-title">02 解決策合意案件一覧（上位5社）</div>';
+    html += renderPipelineStageTable(sheets.pipeline_02_solution);
+    html += '</div>';
+  }
+
+  if (sheets.pipeline_03_pricing) {
+    html += '<div class="card">';
+    html += '<div class="card-title">03 価格合意案件一覧（全案件）</div>';
+    html += renderPipelineStageTable(sheets.pipeline_03_pricing);
+    html += '</div>';
+  }
+
   document.getElementById('content').innerHTML = html;
 
   setTimeout(() => {
@@ -1531,6 +1545,32 @@ function renderPipelineSummaryTable(data) {
 
 function renderPipelineSummaryChart(data, chartId) {
   return `<div class="chart-container"><canvas id="${chartId}"></canvas></div>`;
+}
+
+function renderPipelineStageTable(data) {
+  if (!data || data.error) return `<div style="color: #999;">データなし</div>`;
+
+  const months = data.months || [];
+  const stageData = data.data || {};
+
+  let html = '';
+  for (let month of months) {
+    const items = stageData[month] || [];
+    html += `<div style="margin: 12px 0; font-weight: 600; color: #1f2937;">${month} (${items.length}件)</div>`;
+
+    if (items.length === 0) {
+      html += '<div style="color: #999; margin-bottom: 12px;">案件なし</div>';
+      continue;
+    }
+
+    html += '<div class="table-container"><table style="font-size: 13px;"><thead><tr><th>会社</th><th>金額</th><th>人数</th></tr></thead><tbody>';
+    for (let item of items) {
+      html += `<tr><td>${item.company}</td><td>${formatNum(item.amount)}</td><td>${item.people}</td></tr>`;
+    }
+    html += '</tbody></table></div>';
+  }
+
+  return html;
 }
 
 function initPipelineSummaryChart(data, chartId) {
