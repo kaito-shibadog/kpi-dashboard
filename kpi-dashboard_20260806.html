@@ -1549,9 +1549,10 @@ function initPipelineSummaryChart(data, chartId) {
     '03_pricing': '#f59e0b'
   };
 
+  const stageOrder = ['03_pricing', '02_solution', '01_awareness'];
   const datasets = [];
 
-  for (let stageKey in stageLabels) {
+  for (let stageKey of stageOrder) {
     const values = stages[stageKey] || [];
     const stageData = [];
     for (let idx of range) {
@@ -1581,25 +1582,24 @@ function initPipelineSummaryChart(data, chartId) {
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      indexAxis: 'y',
       plugins: {
-        legend: { position: 'right' },
+        legend: { position: 'top' },
         tooltip: {
           mode: 'index',
           intersect: false,
           callbacks: {
             label: (context) => {
-              return `${context.dataset.label}: ${formatNum(context.parsed.x)}`;
+              return `${context.dataset.label}: ${formatNum(context.parsed.y)}`;
             }
           }
         }
       },
       scales: {
-        x: {
+        y: {
           stacked: true,
           ticks: { callback: v => formatNum(v) }
         },
-        y: { stacked: true }
+        x: { stacked: true }
       }
     }
   });
