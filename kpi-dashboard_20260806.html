@@ -1498,9 +1498,9 @@ function renderPipelineSummaryTable(data) {
   };
 
   const stageBgColors = {
-    '01_awareness': '#dbeafe',
-    '02_solution': '#dcfce7',
-    '03_pricing': '#fed7aa'
+    '01_awareness': '#eff6ff',
+    '02_solution': '#f0fdf4',
+    '03_pricing': '#fffbeb'
   };
 
   let html = '<div class="table-container"><table><thead><tr><th>ステージ</th>';
@@ -1511,7 +1511,7 @@ function renderPipelineSummaryTable(data) {
   }
   html += '</tr></thead><tbody>';
 
-  const stageOrder = ['03_pricing', '02_solution', '01_awareness'];
+  const stageOrder = ['01_awareness', '02_solution', '03_pricing'];
   for (let stageKey of stageOrder) {
     const values = stages[stageKey] || [];
     const bgColor = stageBgColors[stageKey];
