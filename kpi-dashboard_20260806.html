@@ -466,37 +466,12 @@ function renderComparison() {
 }
 
 // ============================================================
-// 昨対比チャート（グループ化された棒グラフ）
+// 昨対比チャート（折れ線グラフ）
 // ============================================================
 function renderYoYChart(actual, yoY, dataKey, itemName, chartId) {
   if (!actual || actual.error || !yoY || yoY.error) return '<div style="color:red;">データなし</div>';
 
-  const months = actual.months || [];
-  const range = getMonthIndexRange(currentPeriod);
-
   let html = `<div class="chart-container" style="height: 400px;"><canvas id="${chartId}"></canvas></div>`;
-
-  // テーブル：月ごとの今年と昨年を比較
-  html += '<div class="table-container"><table><thead><tr><th>月</th><th>今年</th><th>昨年</th><th>対前年比</th></tr></thead><tbody>';
-
-  const actualRow = actual.rows?.find(r => r.item === itemName);
-  const actualValues = actualRow?.values || [];
-  const previousValues = yoY.previousYear?.[dataKey] || [];
-
-  for (let idx of range) {
-    if (idx < months.length) {
-      const thisYear = actualValues[idx] || 0;
-      const lastYear = previousValues[idx] || 0;
-      const ratio = lastYear !== 0 ? ((thisYear / lastYear) * 100).toFixed(1) : '-';
-
-      html += `<tr><td>${months[idx]}</td>`;
-      html += `<td>${formatNum(thisYear)}</td>`;
-      html += `<td>${formatNum(lastYear)}</td>`;
-      html += `<td>${ratio}%</td></tr>`;
-    }
-  }
-
-  html += '</tbody></table></div>';
   return html;
 }
 
@@ -514,26 +489,30 @@ function initYoYChart(actual, yoY, dataKey, itemName, chartId) {
   const actualValues = actualRow?.values || [];
   const previousValues = yoY.previousYear?.[dataKey] || [];
 
-  const filter = (vals) => range.map(i => vals[i] ?? 0);
+  const filter = (vals) => range.map(i => vals[i] ?? null);
 
   chartInstances[chartId] = new Chart(ctx, {
-    type: 'bar',
+    type: 'line',
     data: {
       labels: filteredMonths,
       datasets: [
         {
           label: '今年',
           data: filter(actualValues),
-          backgroundColor: '#2563eb',
           borderColor: '#2563eb',
-          borderWidth: 0
+          backgroundColor: 'transparent',
+          borderWidth: 2,
+          tension: 0.4,
+          fill: false
         },
         {
           label: '昨年',
           data: filter(previousValues),
-          backgroundColor: '#9ca3af',
           borderColor: '#9ca3af',
-          borderWidth: 0
+          backgroundColor: 'transparent',
+          borderWidth: 2,
+          tension: 0.4,
+          fill: false
         }
       ]
     },
@@ -543,6 +522,12 @@ function initYoYChart(actual, yoY, dataKey, itemName, chartId) {
       plugins: {
         legend: { position: 'top' },
         tooltip: {
+          mode: 'index',
+          intersect: false,
+          padding: 12,
+          backgroundColor: 'rgba(0, 0, 0, 0.8)',
+          titleFont: { size: 14 },
+          bodyFont: { size: 13 },
           callbacks: {
             label: (context) => {
               return `${context.dataset.label}: ${formatNum(context.parsed.y)}`;
