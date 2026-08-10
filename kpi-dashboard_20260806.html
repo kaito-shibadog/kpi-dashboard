@@ -118,6 +118,8 @@ function switchTab(tabName, btnEl) {
 
   if (tabName === 'accounting') {
     renderAccounting();
+  } else if (tabName === 'indicators') {
+    renderIndicators();
   } else {
     document.getElementById('content').innerHTML = '<p style="text-align:center; color:#999; padding:40px;">今後実装予定</p>';
   }
@@ -142,6 +144,115 @@ function toggleBudget() {
     chart.getDatasetMeta(5).hidden = !showBudget;
     chart.update();
   }
+}
+
+// ============================================================
+// 事業指標タブレンダリング
+// ============================================================
+function renderIndicators() {
+  const sheets = allData.sheets || {};
+  let html = '';
+
+  // 業種別支援人数
+  if (sheets.genre_support) {
+    html += '<div class="card">';
+    html += '<div class="card-title">業種別支援人数（月次）</div>';
+    html += renderGenreChart(sheets.genre_support, 'genre-support-chart');
+    html += '</div>';
+  }
+
+  // 業種別紹介人数
+  if (sheets.genre_intro) {
+    html += '<div class="card">';
+    html += '<div class="card-title">業種別紹介人数（月次）</div>';
+    html += renderGenreChart(sheets.genre_intro, 'genre-intro-chart');
+    html += '</div>';
+  }
+
+  document.getElementById('content').innerHTML = html;
+
+  setTimeout(() => {
+    if (sheets.genre_support) initGenreChart(sheets.genre_support, 'genre-support-chart');
+    if (sheets.genre_intro) initGenreChart(sheets.genre_intro, 'genre-intro-chart');
+  }, 100);
+}
+
+// ============================================================
+// 業種別チャート（積み上げ棒グラフ）
+// ============================================================
+function renderGenreChart(genreData, chartId) {
+  if (!genreData || genreData.error) return '<div style="color:red;">データなし</div>';
+
+  const months = genreData.months || [];
+  const range = getMonthIndexRange(currentPeriod);
+
+  let html = `<div class="chart-container" style="height: 500px;"><canvas id="${chartId}"></canvas></div>`;
+  return html;
+}
+
+function initGenreChart(genreData, chartId) {
+  if (chartInstances[chartId]) chartInstances[chartId].destroy();
+
+  const ctx = document.getElementById(chartId);
+  if (!ctx) return;
+
+  const months = genreData.months || [];
+  const range = getMonthIndexRange(currentPeriod);
+  const filteredMonths = range.filter(i => i < months.length).map(i => months[i]);
+
+  const rows = genreData.rows || [];
+
+  // 色のパレット
+  const colors = [
+    '#2563eb', '#ef4444', '#16a34a', '#f59e0b',
+    '#8b5cf6', '#06b6d4', '#ec4899', '#f97316',
+    '#14b8a6', '#3b82f6', '#10b981', '#f43f5e'
+  ];
+
+  const datasets = rows.map((row, idx) => {
+    const filteredValues = range.map(i => row.values?.[i] ?? 0);
+    return {
+      label: row.genre || '不明',
+      data: filteredValues,
+      backgroundColor: colors[idx % colors.length],
+      borderColor: colors[idx % colors.length],
+      borderWidth: 0
+    };
+  });
+
+  chartInstances[chartId] = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: filteredMonths,
+      datasets: datasets
+    },
+    options: {
+      indexAxis: undefined,
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'top' },
+        tooltip: {
+          callbacks: {
+            label: (context) => {
+              return `${context.dataset.label}: ${context.parsed.y}`;
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          stacked: true,
+          ticks: { callback: v => months[v] || '' }
+        },
+        y: {
+          stacked: true,
+          beginAtZero: true,
+          ticks: { callback: v => formatNum(v) }
+        }
+      }
+    }
+  });
 }
 
 function renderAccounting() {
