@@ -163,11 +163,29 @@ function renderAccounting() {
   html += renderCFChart(sheets.CF);
   html += '</div>';
 
+  // 直接雇用PL
+  if (sheets.PL_direct) {
+    html += '<div class="card">';
+    html += '<div class="card-title">直接雇用部門PL月次推移</div>';
+    html += renderSegmentPLChart(sheets.PL_direct, 'segment-pl-chart-direct');
+    html += '</div>';
+  }
+
+  // 派遣PL
+  if (sheets.PL_dispatch) {
+    html += '<div class="card">';
+    html += '<div class="card-title">派遣部門PL月次推移</div>';
+    html += renderSegmentPLChart(sheets.PL_dispatch, 'segment-pl-chart-dispatch');
+    html += '</div>';
+  }
+
   document.getElementById('content').innerHTML = html;
 
   setTimeout(() => {
     initPLComparisonChart(sheets.PL_actual, sheets.PL_budget);
     initCFChart(sheets.CF);
+    if (sheets.PL_direct) initSegmentPLChart(sheets.PL_direct, 'segment-pl-chart-direct');
+    if (sheets.PL_dispatch) initSegmentPLChart(sheets.PL_dispatch, 'segment-pl-chart-dispatch');
   }, 100);
 }
 
@@ -402,6 +420,128 @@ function renderCFChart(cfData) {
   html += '</div>';
 
   return html;
+}
+
+// ============================================================
+// 部門別 PL チャート
+// ============================================================
+function renderSegmentPLChart(segmentData, chartId) {
+  if (!segmentData || segmentData.error) return '<div style="color:red;">部門別PLデータなし</div>';
+
+  const months = segmentData.months || [];
+  const range = getMonthIndexRange(currentPeriod);
+
+  let html = `<div class="chart-container"><canvas id="${chartId}"></canvas></div>`;
+
+  // 実績テーブル
+  html += '<div class="table-container"><table><thead><tr><th>項目</th>';
+  for (let idx of range) {
+    if (idx < months.length) html += `<th>${months[idx]}</th>`;
+  }
+  html += '</tr></thead><tbody>';
+
+  for (let row of (segmentData.rows || [])) {
+    html += `<tr><td>${row.item}</td>`;
+    for (let idx of range) {
+      if (idx < (row.values || []).length) html += `<td>${formatNum(row.values[idx])}</td>`;
+    }
+    html += '</tr>';
+  }
+
+  html += '</tbody></table></div>';
+  return html;
+}
+
+function initSegmentPLChart(segmentData, chartId) {
+  if (chartInstances[chartId]) chartInstances[chartId].destroy();
+
+  const ctx = document.getElementById(chartId);
+  if (!ctx) return;
+
+  const months = segmentData.months || [];
+  const range = getMonthIndexRange(currentPeriod);
+  const filteredMonths = range.filter(i => i < months.length).map(i => months[i]);
+
+  const sales = (segmentData.rows?.find(r => r.item === '売上高合計') || {}).values || [];
+  const gp = (segmentData.rows?.find(r => r.item === '売上総利益') || {}).values || [];
+  const op = (segmentData.rows?.find(r => r.item === '営業利益') || {}).values || [];
+
+  const filter = (vals) => range.map(i => vals[i] ?? null);
+
+  const tooltipItems = (context) => {
+    const lines = [];
+    for (let i = 0; i < context[0].chart.data.datasets.length; i++) {
+      const dataset = context[0].chart.data.datasets[i];
+      const value = dataset.data[context[0].dataIndex];
+      if (value !== null && value !== undefined) {
+        lines.push({
+          label: dataset.label,
+          value: formatNum(value),
+          borderColor: dataset.borderColor
+        });
+      }
+    }
+    return lines;
+  };
+
+  chartInstances[chartId] = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: filteredMonths,
+      datasets: [
+        {
+          label: '売上高合計',
+          data: filter(sales),
+          borderColor: '#2563eb',
+          backgroundColor: 'rgba(37, 99, 235, 0.1)',
+          tension: 0.4,
+          fill: true
+        },
+        {
+          label: '売上総利益',
+          data: filter(gp),
+          borderColor: '#059669',
+          backgroundColor: 'rgba(5, 150, 105, 0.1)',
+          tension: 0.4,
+          fill: false
+        },
+        {
+          label: '営業利益',
+          data: filter(op),
+          borderColor: '#dc2626',
+          backgroundColor: 'rgba(220, 38, 38, 0.1)',
+          tension: 0.4,
+          fill: false
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'top' },
+        tooltip: {
+          mode: 'index',
+          callbacks: {
+            afterLabel: (context) => {
+              const lines = tooltipItems([context]);
+              return lines.map(l => `${l.label}: ${l.value}`).join('\n');
+            }
+          }
+        }
+      },
+      scales: {
+        y: {
+          ticks: { callback: v => formatNum(v) },
+          plugins: {
+            filler: {
+              propagate: true
+            }
+          }
+        }
+      }
+    }
+  });
 }
 
 function initCFChart(cfData) {
