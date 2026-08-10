@@ -1485,16 +1485,31 @@ function renderPipeline() {
   }, 100);
 }
 
+function getPipelineStartMonthIndex() {
+  // 会計の currentMonthIndex (0-11) をパイプラインのインデックス (0-6) に変換
+  // 会計: 0=11月, 1=12月, 2=1月, 3=2月, 4=3月, 5=4月, 6=5月, 7=6月, 8=7月, 9=8月, 10=9月, 11=10月
+  // パイプライン: 0=4月, 1=5月, 2=6月, 3=7月, 4=8月, 5=9月, 6=10月
+  const currentMonthIdx = allData.currentMonthIndex || 9; // デフォルト: 8月
+  const pipelineStartIdx = currentMonthIdx - 5; // 会計の8月(9)→パイプラインの8月(4)
+  return Math.max(0, pipelineStartIdx);
+}
+
 function getPipelineMonthRange(period) {
-  // パイプラインデータ: 4月(0)〜10月(6)までを表示
+  // パイプラインデータ: 4月(0)〜10月(6)までを表示、ただし進行月以降のみ
+  const startIdx = getPipelineStartMonthIndex();
+
   switch(period) {
     case 'q1': return []; // 該当なし
-    case 'q2': return [0, 1, 2]; // 4月, 5月, 6月
-    case 'q3': return [3, 4, 5]; // 7月, 8月, 9月
-    case 'q4': return [6]; // 10月のみ
-    case 'h1': return [0, 1, 2]; // 4月, 5月, 6月 (下半期スタート)
-    case 'h2': return [3, 4, 5, 6]; // 7月〜10月
-    default: return [0, 1, 2, 3, 4, 5, 6]; // 全期間 (4月〜10月)
+    case 'q2': return [0, 1, 2].filter(i => i >= startIdx); // 4月, 5月, 6月
+    case 'q3': return [3, 4, 5].filter(i => i >= startIdx); // 7月, 8月, 9月
+    case 'q4': return [6].filter(i => i >= startIdx); // 10月のみ
+    case 'h1': return [0, 1, 2].filter(i => i >= startIdx); // 4月, 5月, 6月
+    case 'h2': return [3, 4, 5, 6].filter(i => i >= startIdx); // 7月〜10月
+    default: {
+      // 全期間: 進行月以降のみ
+      const allMonths = [0, 1, 2, 3, 4, 5, 6];
+      return allMonths.filter(i => i >= startIdx);
+    }
   }
 }
 
@@ -1552,9 +1567,17 @@ function renderPipelineStageTable(data) {
 
   const months = data.months || [];
   const stageData = data.data || {};
+  const currentMonthIdx = allData.currentMonthIndex || 9; // 会計の8月(9)
+  const pipelineStartIdx = currentMonthIdx - 5; // 会計の8月(9)→パイプラインの8月(1)
+  const startIdx = Math.max(0, pipelineStartIdx);
+  const endIdx = 3; // 案件一覧では2026-10 までのみ (月配列: 0=7月, 3=10月)
 
   let html = '';
-  for (let month of months) {
+  for (let i = 0; i < months.length; i++) {
+    // 進行月から2026-10までのみ表示
+    if (i < startIdx || i > endIdx) continue;
+
+    const month = months[i];
     const items = stageData[month] || [];
     html += `<div style="margin: 12px 0; font-weight: 600; color: #1f2937;">${month} (${items.length}件)</div>`;
 
