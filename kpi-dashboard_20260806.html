@@ -1497,27 +1497,31 @@ function renderPipelineSummaryTable(data) {
     '03_pricing': '03 価格合意'
   };
 
+  const stageBgColors = {
+    '01_awareness': '#dbeafe',
+    '02_solution': '#dcfce7',
+    '03_pricing': '#fed7aa'
+  };
+
   let html = '<div class="table-container"><table><thead><tr><th>ステージ</th>';
   for (let idx of range) {
     if (idx < months.length) {
       html += `<th>${months[idx]}</th>`;
     }
   }
-  html += '<th style="background: #ffeb3b; font-weight: bold;">合計</th>';
   html += '</tr></thead><tbody>';
 
-  for (let stageKey in stageLabels) {
+  const stageOrder = ['03_pricing', '02_solution', '01_awareness'];
+  for (let stageKey of stageOrder) {
     const values = stages[stageKey] || [];
-    html += `<tr><td>${stageLabels[stageKey]}</td>`;
-    let total = 0;
+    const bgColor = stageBgColors[stageKey];
+    html += `<tr style="background-color: ${bgColor};"><td>${stageLabels[stageKey]}</td>`;
     for (let idx of range) {
       if (idx < values.length) {
         const value = values[idx] || 0;
-        total += value;
         html += `<td>${formatNum(value)}</td>`;
       }
     }
-    html += `<td style="background: #fff3cd; font-weight: bold;">${formatNum(total)}</td>`;
     html += '</tr>';
   }
 
