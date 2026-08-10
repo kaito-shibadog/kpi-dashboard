@@ -169,11 +169,20 @@ function renderIndicators() {
     html += '</div>';
   }
 
+  // 派遣重要変数
+  if (sheets.dispatch_variables) {
+    html += '<div class="card">';
+    html += '<div class="card-title">派遣重要変数</div>';
+    html += renderDispatchVariables(sheets.dispatch_variables, 'dispatch-chart');
+    html += '</div>';
+  }
+
   document.getElementById('content').innerHTML = html;
 
   setTimeout(() => {
     if (sheets.genre_support) initGenreChart(sheets.genre_support, 'genre-support-chart');
     if (sheets.genre_intro) initGenreChart(sheets.genre_intro, 'genre-intro-chart');
+    if (sheets.dispatch_variables) initDispatchVariablesChart(sheets.dispatch_variables, 'dispatch-chart');
   }, 100);
 }
 
@@ -280,6 +289,125 @@ function initGenreChart(genreData, chartId) {
           stacked: true,
           beginAtZero: true,
           ticks: { callback: v => formatNum(v) }
+        }
+      }
+    }
+  });
+}
+
+// ============================================================
+// 派遣重要変数（総時間＋総人数の dual axis チャート）
+// ============================================================
+function renderDispatchVariables(dispatchData, chartId) {
+  if (!dispatchData || dispatchData.error) return '<div style="color:red;">派遣データなし</div>';
+
+  const months = dispatchData.months || [];
+  const range = getMonthIndexRange(currentPeriod);
+
+  let html = `<div class="chart-container" style="height: 500px;"><canvas id="${chartId}"></canvas></div>`;
+
+  // テーブル：4つの指標の月次推移
+  html += '<div class="table-container"><table><thead><tr><th>指標</th>';
+  for (let idx of range) {
+    if (idx < months.length) html += `<th>${months[idx]}</th>`;
+  }
+  html += '</tr></thead><tbody>';
+
+  const rows = dispatchData.rows || [];
+  for (let row of rows) {
+    html += `<tr><td>${row.item}</td>`;
+    for (let idx of range) {
+      if (idx < (row.values || []).length) {
+        html += `<td>${formatNum(row.values[idx])}</td>`;
+      } else {
+        html += '<td>-</td>';
+      }
+    }
+    html += '</tr>';
+  }
+
+  html += '</tbody></table></div>';
+  return html;
+}
+
+function initDispatchVariablesChart(dispatchData, chartId) {
+  if (chartInstances[chartId]) chartInstances[chartId].destroy();
+
+  const ctx = document.getElementById(chartId);
+  if (!ctx) return;
+
+  const months = dispatchData.months || [];
+  const range = getMonthIndexRange(currentPeriod);
+  const filteredMonths = range.filter(i => i < months.length).map(i => months[i]);
+
+  const totalHours = (dispatchData.rows?.find(r => r.item === '総時間') || {}).values || [];
+  const totalPeople = (dispatchData.rows?.find(r => r.item === '総人数') || {}).values || [];
+  const avgHourly = (dispatchData.rows?.find(r => r.item === '平均時給') || {}).values || [];
+  const avgHours = (dispatchData.rows?.find(r => r.item === '平均時間') || {}).values || [];
+
+  const filter = (vals) => range.map(i => vals[i] ?? null);
+
+  chartInstances[chartId] = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: filteredMonths,
+      datasets: [
+        {
+          label: '総時間',
+          data: filter(totalHours),
+          type: 'line',
+          borderColor: '#2563eb',
+          backgroundColor: 'transparent',
+          borderWidth: 2,
+          tension: 0.4,
+          yAxisID: 'y',
+          fill: false
+        },
+        {
+          label: '総人数',
+          data: filter(totalPeople),
+          type: 'bar',
+          backgroundColor: '#16a34a',
+          borderColor: '#16a34a',
+          borderWidth: 0,
+          yAxisID: 'y1'
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: {
+        mode: 'index',
+        intersect: false
+      },
+      plugins: {
+        legend: { position: 'top' },
+        tooltip: {
+          padding: 12,
+          backgroundColor: 'rgba(0, 0, 0, 0.8)',
+          titleFont: { size: 14 },
+          bodyFont: { size: 13 },
+          callbacks: {
+            label: (context) => {
+              return `${context.dataset.label}: ${formatNum(context.parsed.y)}`;
+            }
+          }
+        }
+      },
+      scales: {
+        y: {
+          type: 'linear',
+          position: 'left',
+          title: { display: true, text: '総時間' },
+          ticks: { callback: v => formatNum(v) }
+        },
+        y1: {
+          type: 'linear',
+          position: 'right',
+          title: { display: true, text: '総人数' },
+          ticks: { callback: v => formatNum(v) },
+          grid: { drawOnChartArea: false }
         }
       }
     }
