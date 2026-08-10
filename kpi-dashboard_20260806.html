@@ -470,6 +470,22 @@ function renderComparison() {
     html += '</div>';
   }
 
+  // 派遣総時間
+  if (sheets.yoy_comparison) {
+    html += '<div class="card">';
+    html += '<div class="card-title">派遣総時間（今年 vs 昨年）</div>';
+    html += renderDispatchYoYChart(sheets.yoy_comparison, 'hours', 'yoy-dispatch-hours-chart');
+    html += '</div>';
+  }
+
+  // 派遣総人数
+  if (sheets.yoy_comparison) {
+    html += '<div class="card">';
+    html += '<div class="card-title">派遣総人数（今年 vs 昨年）</div>';
+    html += renderDispatchYoYChart(sheets.yoy_comparison, 'people', 'yoy-dispatch-people-chart');
+    html += '</div>';
+  }
+
   document.getElementById('content').innerHTML = html;
 
   setTimeout(() => {
@@ -481,6 +497,10 @@ function renderComparison() {
     if (sheets.yoy_comparison && sheets.yoy_comparison.currentYear) {
       initIndicatorYoYChart(sheets.yoy_comparison, 'support', 'yoy-support-chart');
       initIndicatorYoYChart(sheets.yoy_comparison, 'intro', 'yoy-intro-chart');
+    }
+    if (sheets.yoy_comparison) {
+      initDispatchYoYChart(sheets.yoy_comparison, 'hours', 'yoy-dispatch-hours-chart');
+      initDispatchYoYChart(sheets.yoy_comparison, 'people', 'yoy-dispatch-people-chart');
     }
   }, 100);
 }
@@ -627,6 +647,113 @@ function renderIndicatorYoYChart(yoY, dataKey, chartId) {
 }
 
 function initIndicatorYoYChart(yoY, dataKey, chartId) {
+  if (chartInstances[chartId]) chartInstances[chartId].destroy();
+
+  const ctx = document.getElementById(chartId);
+  if (!ctx) return;
+
+  const months = yoY.months || [];
+  const range = getMonthIndexRange(currentPeriod);
+  const filteredMonths = range.filter(i => i < months.length).map(i => months[i]);
+
+  const currentYearValues = yoY.currentYear?.[dataKey] || [];
+  const previousYearValues = yoY.previousYear?.[dataKey] || [];
+
+  const filter = (vals) => range.map(i => vals[i] ?? 0);
+
+  chartInstances[chartId] = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: filteredMonths,
+      datasets: [
+        {
+          label: '昨年',
+          data: filter(previousYearValues),
+          backgroundColor: '#9ca3af',
+          borderColor: '#9ca3af',
+          borderWidth: 0
+        },
+        {
+          label: '今年',
+          data: filter(currentYearValues),
+          backgroundColor: '#2563eb',
+          borderColor: '#2563eb',
+          borderWidth: 0
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'top' },
+        tooltip: {
+          callbacks: {
+            label: (context) => {
+              return `${context.dataset.label}: ${formatNum(context.parsed.y)}`;
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          ticks: { callback: v => months[v] || '' }
+        },
+        y: {
+          beginAtZero: true,
+          ticks: { callback: v => formatNum(v) }
+        }
+      }
+    }
+  });
+}
+
+// ============================================================
+// 派遣重要指標昨対比チャート
+// ============================================================
+function renderDispatchYoYChart(yoY, dataKey, chartId) {
+  if (!yoY || !yoY.previousYear) return '<div style="color:red;">データなし</div>';
+
+  const months = yoY.months || [];
+  const range = getMonthIndexRange(currentPeriod);
+
+  let html = `<div class="chart-container" style="height: 400px;"><canvas id="${chartId}"></canvas></div>`;
+
+  // テーブル：昨年と今年の月別比較（横長）
+  const currentYearValues = yoY.currentYear?.[dataKey] || [];
+  const previousYearValues = yoY.previousYear?.[dataKey] || [];
+
+  html += '<div class="table-container"><table><thead><tr><th>指標</th>';
+  for (let idx of range) {
+    if (idx < months.length) html += `<th>${months[idx]}</th>`;
+  }
+  html += '</tr></thead><tbody>';
+
+  // 昨年の行
+  html += '<tr><td>昨年</td>';
+  for (let idx of range) {
+    if (idx < months.length) {
+      const value = previousYearValues[idx] || 0;
+      html += `<td>${formatNum(value)}</td>`;
+    }
+  }
+  html += '</tr>';
+
+  // 今年の行
+  html += '<tr><td>今年</td>';
+  for (let idx of range) {
+    if (idx < months.length) {
+      const value = currentYearValues[idx] || 0;
+      html += `<td>${formatNum(value)}</td>`;
+    }
+  }
+  html += '</tr>';
+
+  html += '</tbody></table></div>';
+  return html;
+}
+
+function initDispatchYoYChart(yoY, dataKey, chartId) {
   if (chartInstances[chartId]) chartInstances[chartId].destroy();
 
   const ctx = document.getElementById(chartId);
