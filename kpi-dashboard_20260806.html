@@ -133,7 +133,16 @@ function setPeriod(period, btnEl) {
   currentPeriod = period;
   document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
   btnEl.classList.add('active');
-  renderAccounting();
+
+  if (currentTab === 'accounting') {
+    renderAccounting();
+  } else if (currentTab === 'indicators') {
+    renderIndicators();
+  } else if (currentTab === 'comparison') {
+    renderComparison();
+  } else if (currentTab === 'pipeline') {
+    renderPipeline();
+  }
 }
 
 function toggleBudget() {
