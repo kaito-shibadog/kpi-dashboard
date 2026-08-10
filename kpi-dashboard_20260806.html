@@ -122,6 +122,8 @@ function switchTab(tabName, btnEl) {
     renderIndicators();
   } else if (tabName === 'comparison') {
     renderComparison();
+  } else if (tabName === 'pipeline') {
+    renderPipeline();
   } else {
     document.getElementById('content').innerHTML = '<p style="text-align:center; color:#999; padding:40px;">今後実装予定</p>';
   }
@@ -1434,6 +1436,162 @@ function initCFChart(cfData) {
         }
       },
       scales: { y: { ticks: { callback: v => formatNum(v) } } }
+    }
+  });
+}
+
+// ============================================================
+// パイプラインタブレンダリング
+// ============================================================
+function renderPipeline() {
+  const sheets = allData.sheets || {};
+  let html = '';
+
+  if (sheets.pipeline_summary) {
+    html += '<div class="card">';
+    html += '<div class="card-title">全体ファネル別金額（サマリ）</div>';
+    html += renderPipelineSummaryTable(sheets.pipeline_summary);
+    html += renderPipelineSummaryChart(sheets.pipeline_summary, 'pipeline-chart');
+    html += '</div>';
+  }
+
+  document.getElementById('content').innerHTML = html;
+
+  setTimeout(() => {
+    if (sheets.pipeline_summary) initPipelineSummaryChart(sheets.pipeline_summary, 'pipeline-chart');
+  }, 100);
+}
+
+function getPipelineMonthRange(period) {
+  // パイプラインデータ: 4月(0)〜12月(8)の9ヶ月
+  switch(period) {
+    case 'q1': return []; // 該当なし
+    case 'q2': return [0, 1, 2]; // 4月, 5月, 6月
+    case 'q3': return [3, 4, 5]; // 7月, 8月, 9月
+    case 'q4': return [6, 7, 8]; // 10月, 11月, 12月
+    case 'h1': return [0, 1, 2]; // 4月, 5月, 6月 (下半期スタート)
+    case 'h2': return [3, 4, 5, 6, 7, 8]; // 7月〜12月
+    default: return [0, 1, 2, 3, 4, 5, 6, 7, 8]; // 全期間
+  }
+}
+
+function renderPipelineSummaryTable(data) {
+  if (!data || data.error) return '';
+
+  const months = data.months || [];
+  const range = getPipelineMonthRange(currentPeriod);
+  const stages = data.stages || {};
+
+  const stageLabels = {
+    '01_awareness': '01 課題合意',
+    '02_solution': '02 解決策合意',
+    '03_pricing': '03 価格合意'
+  };
+
+  let html = '<div class="table-container"><table><thead><tr><th>ステージ</th>';
+  for (let idx of range) {
+    if (idx < months.length) {
+      html += `<th>${months[idx]}</th>`;
+    }
+  }
+  html += '<th style="background: #ffeb3b; font-weight: bold;">合計</th>';
+  html += '</tr></thead><tbody>';
+
+  for (let stageKey in stageLabels) {
+    const values = stages[stageKey] || [];
+    html += `<tr><td>${stageLabels[stageKey]}</td>`;
+    let total = 0;
+    for (let idx of range) {
+      if (idx < values.length) {
+        const value = values[idx] || 0;
+        total += value;
+        html += `<td>${formatNum(value)}</td>`;
+      }
+    }
+    html += `<td style="background: #fff3cd; font-weight: bold;">${formatNum(total)}</td>`;
+    html += '</tr>';
+  }
+
+  html += '</tbody></table></div>';
+  return html;
+}
+
+function renderPipelineSummaryChart(data, chartId) {
+  return `<div class="chart-container"><canvas id="${chartId}"></canvas></div>`;
+}
+
+function initPipelineSummaryChart(data, chartId) {
+  const canvas = document.getElementById(chartId);
+  if (!canvas) return;
+
+  const months = data.months || [];
+  const range = getPipelineMonthRange(currentPeriod);
+  const stages = data.stages || {};
+
+  const stageLabels = {
+    '01_awareness': '01 課題合意',
+    '02_solution': '02 解決策合意',
+    '03_pricing': '03 価格合意'
+  };
+
+  const stageColors = {
+    '01_awareness': '#3b82f6',
+    '02_solution': '#10b981',
+    '03_pricing': '#f59e0b'
+  };
+
+  const datasets = [];
+
+  for (let stageKey in stageLabels) {
+    const values = stages[stageKey] || [];
+    const stageData = [];
+    for (let idx of range) {
+      stageData.push(values[idx] || 0);
+    }
+    datasets.push({
+      label: stageLabels[stageKey],
+      data: stageData,
+      backgroundColor: stageColors[stageKey],
+      borderColor: stageColors[stageKey],
+      borderWidth: 0
+    });
+  }
+
+  const filteredMonths = range.map(idx => months[idx] || '');
+
+  if (chartInstances[chartId]) {
+    chartInstances[chartId].destroy();
+  }
+
+  chartInstances[chartId] = new Chart(canvas, {
+    type: 'bar',
+    data: {
+      labels: filteredMonths,
+      datasets: datasets
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      indexAxis: 'y',
+      plugins: {
+        legend: { position: 'right' },
+        tooltip: {
+          mode: 'index',
+          intersect: false,
+          callbacks: {
+            label: (context) => {
+              return `${context.dataset.label}: ${formatNum(context.parsed.x)}`;
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          stacked: true,
+          ticks: { callback: v => formatNum(v) }
+        },
+        y: { stacked: true }
+      }
     }
   });
 }
