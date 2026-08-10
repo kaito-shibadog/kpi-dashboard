@@ -1472,15 +1472,15 @@ function renderPipeline() {
 }
 
 function getPipelineMonthRange(period) {
-  // パイプラインデータ: 4月(0)〜12月(8)の9ヶ月
+  // パイプラインデータ: 4月(0)〜10月(6)までを表示
   switch(period) {
     case 'q1': return []; // 該当なし
     case 'q2': return [0, 1, 2]; // 4月, 5月, 6月
     case 'q3': return [3, 4, 5]; // 7月, 8月, 9月
-    case 'q4': return [6, 7, 8]; // 10月, 11月, 12月
+    case 'q4': return [6]; // 10月のみ
     case 'h1': return [0, 1, 2]; // 4月, 5月, 6月 (下半期スタート)
-    case 'h2': return [3, 4, 5, 6, 7, 8]; // 7月〜12月
-    default: return [0, 1, 2, 3, 4, 5, 6, 7, 8]; // 全期間
+    case 'h2': return [3, 4, 5, 6]; // 7月〜10月
+    default: return [0, 1, 2, 3, 4, 5, 6]; // 全期間 (4月〜10月)
   }
 }
 
