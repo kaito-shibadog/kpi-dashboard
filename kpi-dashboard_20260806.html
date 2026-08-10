@@ -374,6 +374,9 @@ function renderCFChart(cfData) {
 
   let html = '<div class="chart-container"><canvas id="cf-chart"></canvas></div>';
 
+  // グラフとカードの間の注記
+  html += '<div style="font-size: 11px; color: #666; margin-top: 16px; margin-bottom: 16px;">※現預金担保の短期借入3,000万円を含む</div>';
+
   // バーンレート・ランウェイを大きく表示
   const burnRateRow = (cfData.rows || []).find(r => r.item === 'バーンレート');
   const runwayRow = (cfData.rows || []).find(r => r.item === '月末時点ランウェイ');
@@ -381,7 +384,7 @@ function renderCFChart(cfData) {
   const burnRate = burnRateRow?.values?.[currentMonthIdx];
   const runway = runwayRow?.values?.[currentMonthIdx];
 
-  html += '<div style="display: flex; gap: 24px; margin-top: 24px; margin-bottom: 24px;">';
+  html += '<div style="display: flex; gap: 24px; margin-top: 24px;">';
 
   // バーンレート
   html += '<div style="flex: 1; padding: 20px; background: #fef2f2; border-radius: 8px; border: 1px solid #fecaca;">';
@@ -397,9 +400,6 @@ function renderCFChart(cfData) {
   html += '</div>';
 
   html += '</div>';
-
-  // グラフ下部の注記
-  html += '<div style="font-size: 11px; color: #666; margin-top: 8px;">※現預金担保の短期借入3,000万円を含む</div>';
 
   return html;
 }
