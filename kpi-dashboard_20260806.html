@@ -1568,8 +1568,7 @@ function renderPipelineStageTable(data) {
   const months = data.months || [];
   const stageData = data.data || {};
   const currentMonthIdx = allData.currentMonthIndex || 9; // 会計の8月(9)
-  const pipelineStartIdx = currentMonthIdx - 5; // 会計の8月(9)→パイプラインの8月(1)
-  const startIdx = Math.max(0, pipelineStartIdx);
+  const startIdx = Math.max(0, currentMonthIdx - 8); // 会計の8月(9)→案件一覧の8月(1)
   const endIdx = 3; // 案件一覧では2026-10 までのみ (月配列: 0=7月, 3=10月)
 
   let html = '';
