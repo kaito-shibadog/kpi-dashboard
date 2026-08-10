@@ -187,6 +187,27 @@ function renderGenreChart(genreData, chartId) {
   const range = getMonthIndexRange(currentPeriod);
 
   let html = `<div class="chart-container" style="height: 500px;"><canvas id="${chartId}"></canvas></div>`;
+
+  // テーブル：月ごとの全業種合計
+  html += '<div class="table-container"><table><thead><tr><th>月</th>';
+  for (let idx of range) {
+    if (idx < months.length) html += `<th>${months[idx]}</th>`;
+  }
+  html += '</tr></thead><tbody>';
+
+  html += '<tr><td>全業種合計</td>';
+  for (let idx of range) {
+    let sum = 0;
+    for (let row of (genreData.rows || [])) {
+      if (idx < (row.values || []).length) {
+        sum += row.values[idx];
+      }
+    }
+    html += `<td>${formatNum(sum)}</td>`;
+  }
+  html += '</tr>';
+
+  html += '</tbody></table></div>';
   return html;
 }
 
