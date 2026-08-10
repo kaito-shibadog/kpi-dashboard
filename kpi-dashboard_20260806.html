@@ -613,21 +613,21 @@ function renderIndicatorYoYChart(yoY, dataKey, chartId) {
   }
   html += '</tr></thead><tbody>';
 
-  // 昨年の行
-  html += '<tr><td>昨年</td>';
-  for (let idx of range) {
-    if (idx < months.length) {
-      const value = previousYearValues[idx] || 0;
-      html += `<td>${formatNum(value)}</td>`;
-    }
-  }
-  html += '</tr>';
-
   // 今年の行
   html += '<tr><td>今年</td>';
   for (let idx of range) {
     if (idx < months.length) {
       const value = currentYearValues[idx] || 0;
+      html += `<td>${formatNum(value)}</td>`;
+    }
+  }
+  html += '</tr>';
+
+  // 昨年の行
+  html += '<tr><td>昨年</td>';
+  for (let idx of range) {
+    if (idx < months.length) {
+      const value = previousYearValues[idx] || 0;
       html += `<td>${formatNum(value)}</td>`;
     }
   }
@@ -722,16 +722,6 @@ function renderDispatchDualAxisYoY(yoY, dispatch, chartId) {
   }
   html += '</tr></thead><tbody>';
 
-  // 総時間昨年
-  html += '<tr><td>総時間（昨年）</td>';
-  for (let idx of range) {
-    if (idx < months.length) {
-      const value = hoursYoY[idx] || 0;
-      html += `<td>${formatNum(value)}</td>`;
-    }
-  }
-  html += '</tr>';
-
   // 総時間今年
   html += '<tr><td>総時間（今年）</td>';
   for (let idx of range) {
@@ -742,11 +732,11 @@ function renderDispatchDualAxisYoY(yoY, dispatch, chartId) {
   }
   html += '</tr>';
 
-  // 総人数昨年
-  html += '<tr><td>総人数（昨年）</td>';
+  // 総時間昨年
+  html += '<tr><td>総時間（昨年）</td>';
   for (let idx of range) {
     if (idx < months.length) {
-      const value = peopleYoY[idx] || 0;
+      const value = hoursYoY[idx] || 0;
       html += `<td>${formatNum(value)}</td>`;
     }
   }
@@ -757,6 +747,16 @@ function renderDispatchDualAxisYoY(yoY, dispatch, chartId) {
   for (let idx of range) {
     if (idx < months.length) {
       const value = peopleDispatch[idx] || 0;
+      html += `<td>${formatNum(value)}</td>`;
+    }
+  }
+  html += '</tr>';
+
+  // 総人数昨年
+  html += '<tr><td>総人数（昨年）</td>';
+  for (let idx of range) {
+    if (idx < months.length) {
+      const value = peopleYoY[idx] || 0;
       html += `<td>${formatNum(value)}</td>`;
     }
   }
@@ -792,7 +792,7 @@ function initDispatchDualAxisYoY(yoY, dispatch, chartId) {
           label: '総時間（昨年）',
           data: filter(hoursYoY),
           type: 'line',
-          borderColor: '#9ca3af',
+          borderColor: '#4b5563',
           backgroundColor: 'transparent',
           borderWidth: 2,
           tension: 0.4,
@@ -892,21 +892,21 @@ function renderDispatchYoYChart(yoY, dataKey, chartId) {
   }
   html += '</tr></thead><tbody>';
 
-  // 昨年の行
-  html += '<tr><td>昨年</td>';
-  for (let idx of range) {
-    if (idx < months.length) {
-      const value = previousYearValues[idx] || 0;
-      html += `<td>${formatNum(value)}</td>`;
-    }
-  }
-  html += '</tr>';
-
   // 今年の行
   html += '<tr><td>今年</td>';
   for (let idx of range) {
     if (idx < months.length) {
       const value = currentYearValues[idx] || 0;
+      html += `<td>${formatNum(value)}</td>`;
+    }
+  }
+  html += '</tr>';
+
+  // 昨年の行
+  html += '<tr><td>昨年</td>';
+  for (let idx of range) {
+    if (idx < months.length) {
+      const value = previousYearValues[idx] || 0;
       html += `<td>${formatNum(value)}</td>`;
     }
   }
