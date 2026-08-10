@@ -587,7 +587,29 @@ function initYoYChart(actual, yoY, dataKey, itemName, chartId) {
 function renderIndicatorYoYChart(yoY, dataKey, chartId) {
   if (!yoY || !yoY.currentYear || !yoY.currentYear[dataKey]) return '<div style="color:red;">データなし</div>';
 
+  const months = yoY.months || [];
+  const range = getMonthIndexRange(currentPeriod);
+
   let html = `<div class="chart-container" style="height: 400px;"><canvas id="${chartId}"></canvas></div>`;
+
+  // テーブル：月ごとの昨年と今年を比較
+  html += '<div class="table-container"><table><thead><tr><th>月</th><th>昨年</th><th>今年</th></tr></thead><tbody>';
+
+  const currentYearValues = yoY.currentYear?.[dataKey] || [];
+  const previousYearValues = yoY.previousYear?.[dataKey] || [];
+
+  for (let idx of range) {
+    if (idx < months.length) {
+      const lastYear = previousYearValues[idx] || 0;
+      const thisYear = currentYearValues[idx] || 0;
+
+      html += `<tr><td>${months[idx]}</td>`;
+      html += `<td>${formatNum(lastYear)}</td>`;
+      html += `<td>${formatNum(thisYear)}</td></tr>`;
+    }
+  }
+
+  html += '</tbody></table></div>';
   return html;
 }
 
@@ -612,17 +634,17 @@ function initIndicatorYoYChart(yoY, dataKey, chartId) {
       labels: filteredMonths,
       datasets: [
         {
-          label: '今年',
-          data: filter(currentYearValues),
-          backgroundColor: '#2563eb',
-          borderColor: '#2563eb',
-          borderWidth: 0
-        },
-        {
           label: '昨年',
           data: filter(previousYearValues),
           backgroundColor: '#9ca3af',
           borderColor: '#9ca3af',
+          borderWidth: 0
+        },
+        {
+          label: '今年',
+          data: filter(currentYearValues),
+          backgroundColor: '#2563eb',
+          borderColor: '#2563eb',
           borderWidth: 0
         }
       ]
