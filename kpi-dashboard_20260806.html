@@ -221,7 +221,8 @@ function initGenreChart(genreData, chartId) {
   const range = getMonthIndexRange(currentPeriod);
   const filteredMonths = range.filter(i => i < months.length).map(i => months[i]);
 
-  const rows = genreData.rows || [];
+  // 業種名が空欄のものを除外
+  const rows = (genreData.rows || []).filter(r => r.genre && r.genre.trim());
 
   // 色のパレット
   const colors = [
@@ -233,7 +234,7 @@ function initGenreChart(genreData, chartId) {
   const datasets = rows.map((row, idx) => {
     const filteredValues = range.map(i => row.values?.[i] ?? 0);
     return {
-      label: row.genre || '不明',
+      label: row.genre,
       data: filteredValues,
       backgroundColor: colors[idx % colors.length],
       borderColor: colors[idx % colors.length],
