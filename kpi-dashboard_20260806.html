@@ -541,7 +541,20 @@ function initYoYChart(actual, yoY, dataKey, itemName, chartId) {
         },
         y: {
           beginAtZero: true,
-          ticks: { callback: v => formatNum(v) }
+          ticks: { callback: v => formatNum(v) },
+          grid: dataKey === 'op' ? {
+            drawBorder: true,
+            drawOnChartArea: true,
+            drawTicks: true,
+            color: (context) => {
+              if (context.tick.value === 0) return '#999';
+              return '#e5e7eb';
+            },
+            lineWidth: (context) => {
+              if (context.tick.value === 0) return 2;
+              return 1;
+            }
+          } : undefined
         }
       }
     }
