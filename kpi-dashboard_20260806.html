@@ -63,7 +63,7 @@
 </main>
 
 <script>
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbzl7Z6Z5sZU4SVrMdSRZ7fK6R-Zp6XY_jnrinYxObUy9X8eDxyR4rvuGLdLQHXbndi65g/exec';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbzA3sBLq5U1OZX-io3_SkGPRB4_VGa1hNpshonNanAvifs15Eu_gxer9ue1dOcymD5TNg/exec';
 let allData = {};
 let currentTab = 'accounting';
 let currentPeriod = 'all';
@@ -120,6 +120,8 @@ function switchTab(tabName, btnEl) {
     renderAccounting();
   } else if (tabName === 'indicators') {
     renderIndicators();
+  } else if (tabName === 'comparison') {
+    renderComparison();
   } else {
     document.getElementById('content').innerHTML = '<p style="text-align:center; color:#999; padding:40px;">今後実装予定</p>';
   }
@@ -415,6 +417,146 @@ function initDispatchVariablesChart(dispatchData, chartId) {
           title: { display: true, text: '総人数' },
           ticks: { callback: v => formatNum(v) },
           grid: { drawOnChartArea: false }
+        }
+      }
+    }
+  });
+}
+
+// ============================================================
+// 昨対比タブレンダリング
+// ============================================================
+function renderComparison() {
+  const sheets = allData.sheets || {};
+  let html = '';
+
+  // 売上
+  if (sheets.PL_actual && sheets.yoy_comparison) {
+    html += '<div class="card">';
+    html += '<div class="card-title">売上高（今年 vs 昨年）</div>';
+    html += renderYoYChart(sheets.PL_actual, sheets.yoy_comparison, 'sales', '売上高合計', 'yoy-sales-chart');
+    html += '</div>';
+  }
+
+  // 売上総利益
+  if (sheets.PL_actual && sheets.yoy_comparison) {
+    html += '<div class="card">';
+    html += '<div class="card-title">売上総利益（今年 vs 昨年）</div>';
+    html += renderYoYChart(sheets.PL_actual, sheets.yoy_comparison, 'gp', '売上総利益', 'yoy-gp-chart');
+    html += '</div>';
+  }
+
+  // 営業利益
+  if (sheets.PL_actual && sheets.yoy_comparison) {
+    html += '<div class="card">';
+    html += '<div class="card-title">営業利益（今年 vs 昨年）</div>';
+    html += renderYoYChart(sheets.PL_actual, sheets.yoy_comparison, 'op', '営業利益', 'yoy-op-chart');
+    html += '</div>';
+  }
+
+  document.getElementById('content').innerHTML = html;
+
+  setTimeout(() => {
+    if (sheets.PL_actual && sheets.yoy_comparison) {
+      initYoYChart(sheets.PL_actual, sheets.yoy_comparison, 'sales', '売上高合計', 'yoy-sales-chart');
+      initYoYChart(sheets.PL_actual, sheets.yoy_comparison, 'gp', '売上総利益', 'yoy-gp-chart');
+      initYoYChart(sheets.PL_actual, sheets.yoy_comparison, 'op', '営業利益', 'yoy-op-chart');
+    }
+  }, 100);
+}
+
+// ============================================================
+// 昨対比チャート（グループ化された棒グラフ）
+// ============================================================
+function renderYoYChart(actual, yoY, dataKey, itemName, chartId) {
+  if (!actual || actual.error || !yoY || yoY.error) return '<div style="color:red;">データなし</div>';
+
+  const months = actual.months || [];
+  const range = getMonthIndexRange(currentPeriod);
+
+  let html = `<div class="chart-container" style="height: 400px;"><canvas id="${chartId}"></canvas></div>`;
+
+  // テーブル：月ごとの今年と昨年を比較
+  html += '<div class="table-container"><table><thead><tr><th>月</th><th>今年</th><th>昨年</th><th>対前年比</th></tr></thead><tbody>';
+
+  const actualRow = actual.rows?.find(r => r.item === itemName);
+  const actualValues = actualRow?.values || [];
+  const previousValues = yoY.previousYear?.[dataKey] || [];
+
+  for (let idx of range) {
+    if (idx < months.length) {
+      const thisYear = actualValues[idx] || 0;
+      const lastYear = previousValues[idx] || 0;
+      const ratio = lastYear !== 0 ? ((thisYear / lastYear) * 100).toFixed(1) : '-';
+
+      html += `<tr><td>${months[idx]}</td>`;
+      html += `<td>${formatNum(thisYear)}</td>`;
+      html += `<td>${formatNum(lastYear)}</td>`;
+      html += `<td>${ratio}%</td></tr>`;
+    }
+  }
+
+  html += '</tbody></table></div>';
+  return html;
+}
+
+function initYoYChart(actual, yoY, dataKey, itemName, chartId) {
+  if (chartInstances[chartId]) chartInstances[chartId].destroy();
+
+  const ctx = document.getElementById(chartId);
+  if (!ctx) return;
+
+  const months = actual.months || [];
+  const range = getMonthIndexRange(currentPeriod);
+  const filteredMonths = range.filter(i => i < months.length).map(i => months[i]);
+
+  const actualRow = actual.rows?.find(r => r.item === itemName);
+  const actualValues = actualRow?.values || [];
+  const previousValues = yoY.previousYear?.[dataKey] || [];
+
+  const filter = (vals) => range.map(i => vals[i] ?? 0);
+
+  chartInstances[chartId] = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: filteredMonths,
+      datasets: [
+        {
+          label: '今年',
+          data: filter(actualValues),
+          backgroundColor: '#2563eb',
+          borderColor: '#2563eb',
+          borderWidth: 0
+        },
+        {
+          label: '昨年',
+          data: filter(previousValues),
+          backgroundColor: '#9ca3af',
+          borderColor: '#9ca3af',
+          borderWidth: 0
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'top' },
+        tooltip: {
+          callbacks: {
+            label: (context) => {
+              return `${context.dataset.label}: ${formatNum(context.parsed.y)}`;
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          ticks: { callback: v => months[v] || '' }
+        },
+        y: {
+          beginAtZero: true,
+          ticks: { callback: v => formatNum(v) }
         }
       }
     }
