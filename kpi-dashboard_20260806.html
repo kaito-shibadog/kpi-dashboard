@@ -470,19 +470,11 @@ function renderComparison() {
     html += '</div>';
   }
 
-  // 派遣総時間
-  if (sheets.yoy_comparison) {
+  // 派遣重要変数（総時間＋総人数の Dual Axis チャート）
+  if (sheets.yoy_comparison && sheets.dispatch_variables) {
     html += '<div class="card">';
-    html += '<div class="card-title">派遣総時間（今年 vs 昨年）</div>';
-    html += renderDispatchYoYChart(sheets.yoy_comparison, 'hours', 'yoy-dispatch-hours-chart');
-    html += '</div>';
-  }
-
-  // 派遣総人数
-  if (sheets.yoy_comparison) {
-    html += '<div class="card">';
-    html += '<div class="card-title">派遣総人数（今年 vs 昨年）</div>';
-    html += renderDispatchYoYChart(sheets.yoy_comparison, 'people', 'yoy-dispatch-people-chart');
+    html += '<div class="card-title">派遣重要変数（総時間 vs 総人数）</div>';
+    html += renderDispatchDualAxisYoY(sheets.yoy_comparison, sheets.dispatch_variables, 'yoy-dispatch-dual-chart');
     html += '</div>';
   }
 
@@ -498,9 +490,8 @@ function renderComparison() {
       initIndicatorYoYChart(sheets.yoy_comparison, 'support', 'yoy-support-chart');
       initIndicatorYoYChart(sheets.yoy_comparison, 'intro', 'yoy-intro-chart');
     }
-    if (sheets.yoy_comparison) {
-      initDispatchYoYChart(sheets.yoy_comparison, 'hours', 'yoy-dispatch-hours-chart');
-      initDispatchYoYChart(sheets.yoy_comparison, 'people', 'yoy-dispatch-people-chart');
+    if (sheets.yoy_comparison && sheets.dispatch_variables) {
+      initDispatchDualAxisYoY(sheets.yoy_comparison, sheets.dispatch_variables, 'yoy-dispatch-dual-chart');
     }
   }, 100);
 }
@@ -702,6 +693,178 @@ function initIndicatorYoYChart(yoY, dataKey, chartId) {
         y: {
           beginAtZero: true,
           ticks: { callback: v => formatNum(v) }
+        }
+      }
+    }
+  });
+}
+
+// ============================================================
+// 派遣重要変数昨対比（Dual Axis）
+// ============================================================
+function renderDispatchDualAxisYoY(yoY, dispatch, chartId) {
+  if (!yoY || !yoY.previousYear || !dispatch) return '<div style="color:red;">データなし</div>';
+
+  const months = yoY.months || [];
+  const range = getMonthIndexRange(currentPeriod);
+
+  let html = `<div class="chart-container" style="height: 500px;"><canvas id="${chartId}"></canvas></div>`;
+
+  // テーブル：昨年と今年の月別比較（横長）
+  const hoursYoY = yoY.previousYear?.dispatch_hours || [];
+  const peopleYoY = yoY.previousYear?.dispatch_people || [];
+  const hoursDispatch = (dispatch.rows?.find(r => r.item === '総時間') || {}).values || [];
+  const peopleDispatch = (dispatch.rows?.find(r => r.item === '総人数') || {}).values || [];
+
+  html += '<div class="table-container"><table><thead><tr><th>指標</th>';
+  for (let idx of range) {
+    if (idx < months.length) html += `<th>${months[idx]}</th>`;
+  }
+  html += '</tr></thead><tbody>';
+
+  // 総時間昨年
+  html += '<tr><td>総時間（昨年）</td>';
+  for (let idx of range) {
+    if (idx < months.length) {
+      const value = hoursYoY[idx] || 0;
+      html += `<td>${formatNum(value)}</td>`;
+    }
+  }
+  html += '</tr>';
+
+  // 総時間今年
+  html += '<tr><td>総時間（今年）</td>';
+  for (let idx of range) {
+    if (idx < months.length) {
+      const value = hoursDispatch[idx] || 0;
+      html += `<td>${formatNum(value)}</td>`;
+    }
+  }
+  html += '</tr>';
+
+  // 総人数昨年
+  html += '<tr><td>総人数（昨年）</td>';
+  for (let idx of range) {
+    if (idx < months.length) {
+      const value = peopleYoY[idx] || 0;
+      html += `<td>${formatNum(value)}</td>`;
+    }
+  }
+  html += '</tr>';
+
+  // 総人数今年
+  html += '<tr><td>総人数（今年）</td>';
+  for (let idx of range) {
+    if (idx < months.length) {
+      const value = peopleDispatch[idx] || 0;
+      html += `<td>${formatNum(value)}</td>`;
+    }
+  }
+  html += '</tr>';
+
+  html += '</tbody></table></div>';
+  return html;
+}
+
+function initDispatchDualAxisYoY(yoY, dispatch, chartId) {
+  if (chartInstances[chartId]) chartInstances[chartId].destroy();
+
+  const ctx = document.getElementById(chartId);
+  if (!ctx) return;
+
+  const months = yoY.months || [];
+  const range = getMonthIndexRange(currentPeriod);
+  const filteredMonths = range.filter(i => i < months.length).map(i => months[i]);
+
+  const hoursYoY = yoY.previousYear?.dispatch_hours || [];
+  const peopleYoY = yoY.previousYear?.dispatch_people || [];
+  const hoursDispatch = (dispatch.rows?.find(r => r.item === '総時間') || {}).values || [];
+  const peopleDispatch = (dispatch.rows?.find(r => r.item === '総人数') || {}).values || [];
+
+  const filter = (vals) => range.map(i => vals[i] ?? null);
+
+  chartInstances[chartId] = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: filteredMonths,
+      datasets: [
+        {
+          label: '総時間（昨年）',
+          data: filter(hoursYoY),
+          type: 'line',
+          borderColor: '#9ca3af',
+          backgroundColor: 'transparent',
+          borderWidth: 2,
+          tension: 0.4,
+          yAxisID: 'y',
+          fill: false
+        },
+        {
+          label: '総時間（今年）',
+          data: filter(hoursDispatch),
+          type: 'line',
+          borderColor: '#f97316',
+          backgroundColor: 'transparent',
+          borderWidth: 2,
+          tension: 0.4,
+          yAxisID: 'y',
+          fill: false
+        },
+        {
+          label: '総人数（昨年）',
+          data: filter(peopleYoY),
+          backgroundColor: '#d1d5db',
+          borderColor: '#d1d5db',
+          borderWidth: 0,
+          yAxisID: 'y1'
+        },
+        {
+          label: '総人数（今年）',
+          data: filter(peopleDispatch),
+          backgroundColor: '#10b981',
+          borderColor: '#10b981',
+          borderWidth: 0,
+          yAxisID: 'y1'
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: {
+        mode: 'index',
+        intersect: false
+      },
+      plugins: {
+        legend: { position: 'top' },
+        tooltip: {
+          padding: 12,
+          backgroundColor: 'rgba(0, 0, 0, 0.8)',
+          titleFont: { size: 14 },
+          bodyFont: { size: 13 },
+          callbacks: {
+            label: (context) => {
+              return `${context.dataset.label}: ${formatNum(context.parsed.y)}`;
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          ticks: { callback: v => months[v] || '' }
+        },
+        y: {
+          type: 'linear',
+          position: 'left',
+          title: { display: true, text: '総時間' },
+          ticks: { callback: v => formatNum(v) }
+        },
+        y1: {
+          type: 'linear',
+          position: 'right',
+          title: { display: true, text: '総人数' },
+          ticks: { callback: v => formatNum(v) },
+          grid: { drawOnChartArea: false }
         }
       }
     }
