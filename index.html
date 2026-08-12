@@ -29,6 +29,14 @@
 </head>
 <body class="bg-gray-50">
 
+<!-- 読み込み中スピナー -->
+<div id="loading-spinner" class="fixed inset-0 flex items-center justify-center bg-white bg-opacity-80 z-50">
+  <div class="text-center">
+    <div class="animate-spin rounded-full h-12 w-12 border-4 border-gray-300 border-t-blue-500 mx-auto"></div>
+    <p class="mt-4 text-gray-700 font-medium">データを読み込み中...</p>
+  </div>
+</div>
+
 <header class="bg-white border-b border-gray-200 sticky top-0 z-50">
   <div class="max-w-7xl mx-auto px-6 py-4">
     <h1 class="text-2xl font-bold text-gray-900">経営ダッシュボード(25年11月-26年10月)</h1>
@@ -110,8 +118,10 @@ async function init() {
     }
 
     renderAccounting();
+    document.getElementById('loading-spinner').style.display = 'none';
   } catch (err) {
     console.error('Init error:', err);
+    document.getElementById('loading-spinner').style.display = 'none';
     document.getElementById('content').innerHTML = `<div style="background: #fee2e2; border: 1px solid #fca5a5; color: #991b1b; padding: 12px; border-radius: 6px;">エラー: ${err.message}</div>`;
   }
 }
