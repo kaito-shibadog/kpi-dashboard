@@ -63,7 +63,7 @@
 </main>
 
 <script>
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbxx49U-2GvgLi8PKXBSlLioL_IuYrRXyrvSu3vaAfdPJZ2RIRF0d2FlbJ7KBST-0-Pt2w/exec';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbzYBFC6lqCexauWH1RlyR9il3AYH9RK9yGjWOZraEmqAGAmLH9_5UK9WJJWk4yIknDaXA/exec';
 let allData = {};
 let currentTab = 'accounting';
 let currentPeriod = 'all';
@@ -305,7 +305,7 @@ function initGenreChart(genreData, chartId) {
       scales: {
         x: {
           stacked: true,
-          ticks: { callback: v => months[v] || '' }
+          ticks: { callback: (_, index) => range[index] !== undefined ? months[range[index]] : '' }
         },
         y: {
           stacked: true,
@@ -432,6 +432,9 @@ function initDispatchVariablesChart(dispatchData, chartId) {
         }
       },
       scales: {
+        x: {
+          ticks: { callback: (_, index) => range[index] !== undefined ? months[range[index]] : '' }
+        },
         y: {
           type: 'linear',
           position: 'left',
