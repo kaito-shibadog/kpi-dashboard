@@ -71,13 +71,15 @@ let showBudget = true;
 const chartInstances = {};
 
 function getMonthIndexRange(period) {
+  // 10月決算: 0=11月, 1=12月, 2=1月, ..., 11=10月
+  // Q1(11月-1月), Q2(2月-4月), Q3(5月-7月), Q4(8月-10月)
   switch(period) {
-    case 'q1': return [10, 11, 0];
-    case 'q2': return [1, 2, 3];
-    case 'q3': return [4, 5, 6];
-    case 'q4': return [7, 8, 9];
-    case 'h1': return [10, 11, 0, 1, 2, 3];
-    case 'h2': return [4, 5, 6, 7, 8, 9];
+    case 'q1': return [0, 1, 2];           // 11月-1月
+    case 'q2': return [3, 4, 5];           // 2月-4月
+    case 'q3': return [6, 7, 8];           // 5月-7月
+    case 'q4': return [9, 10, 11];         // 8月-10月
+    case 'h1': return [0, 1, 2, 3, 4, 5];  // 11月-4月
+    case 'h2': return [6, 7, 8, 9, 10, 11]; // 5月-10月
     default: return [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
   }
 }
@@ -234,10 +236,17 @@ function renderGenreChart(genreData, chartId) {
 }
 
 function initGenreChart(genreData, chartId) {
-  if (chartInstances[chartId]) chartInstances[chartId].destroy();
+  if (chartInstances[chartId]) {
+    chartInstances[chartId].destroy();
+  }
 
+  const canvas = document.getElementById(chartId);
+  if (!canvas) return;
+
+  const newCanvas = document.createElement('canvas');
+  newCanvas.id = chartId;
+  canvas.parentNode.replaceChild(newCanvas, canvas);
   const ctx = document.getElementById(chartId);
-  if (!ctx) return;
 
   const months = genreData.months || [];
   const range = getMonthIndexRange(currentPeriod);
@@ -296,7 +305,7 @@ function initGenreChart(genreData, chartId) {
       scales: {
         x: {
           stacked: true,
-          ticks: { callback: v => months[v] || '' }
+          ticks: { callback: (_, index) => range[index] !== undefined ? months[range[index]] : '' }
         },
         y: {
           stacked: true,
@@ -351,10 +360,17 @@ function renderDispatchVariables(dispatchData, chartId) {
 }
 
 function initDispatchVariablesChart(dispatchData, chartId) {
-  if (chartInstances[chartId]) chartInstances[chartId].destroy();
+  if (chartInstances[chartId]) {
+    chartInstances[chartId].destroy();
+  }
 
+  const canvas = document.getElementById(chartId);
+  if (!canvas) return;
+
+  const newCanvas = document.createElement('canvas');
+  newCanvas.id = chartId;
+  canvas.parentNode.replaceChild(newCanvas, canvas);
   const ctx = document.getElementById(chartId);
-  if (!ctx) return;
 
   const months = dispatchData.months || [];
   const range = getMonthIndexRange(currentPeriod);
@@ -518,10 +534,14 @@ function renderYoYChart(actual, yoY, dataKey, itemName, chartId) {
 }
 
 function initYoYChart(actual, yoY, dataKey, itemName, chartId) {
-  if (chartInstances[chartId]) chartInstances[chartId].destroy();
+  if (chartInstances[chartId]) {
+    chartInstances[chartId].destroy();
+  }
 
   const ctx = document.getElementById(chartId);
   if (!ctx) return;
+
+  ctx.width = ctx.width;
 
   const months = actual.months || [];
   const range = getMonthIndexRange(currentPeriod);
@@ -579,7 +599,7 @@ function initYoYChart(actual, yoY, dataKey, itemName, chartId) {
       },
       scales: {
         x: {
-          ticks: { callback: v => months[v] || '' }
+          ticks: { callback: (_, index) => range[index] !== undefined ? months[range[index]] : '' }
         },
         y: {
           beginAtZero: true,
@@ -649,10 +669,14 @@ function renderIndicatorYoYChart(yoY, dataKey, chartId) {
 }
 
 function initIndicatorYoYChart(yoY, dataKey, chartId) {
-  if (chartInstances[chartId]) chartInstances[chartId].destroy();
+  if (chartInstances[chartId]) {
+    chartInstances[chartId].destroy();
+  }
 
   const ctx = document.getElementById(chartId);
   if (!ctx) return;
+
+  ctx.width = ctx.width;
 
   const months = yoY.months || [];
   const range = getMonthIndexRange(currentPeriod);
@@ -699,7 +723,7 @@ function initIndicatorYoYChart(yoY, dataKey, chartId) {
       },
       scales: {
         x: {
-          ticks: { callback: v => months[v] || '' }
+          ticks: { callback: (_, index) => range[index] !== undefined ? months[range[index]] : '' }
         },
         y: {
           beginAtZero: true,
@@ -778,10 +802,14 @@ function renderDispatchDualAxisYoY(yoY, dispatch, chartId) {
 }
 
 function initDispatchDualAxisYoY(yoY, dispatch, chartId) {
-  if (chartInstances[chartId]) chartInstances[chartId].destroy();
+  if (chartInstances[chartId]) {
+    chartInstances[chartId].destroy();
+  }
 
   const ctx = document.getElementById(chartId);
   if (!ctx) return;
+
+  ctx.width = ctx.width;
 
   const months = yoY.months || [];
   const range = getMonthIndexRange(currentPeriod);
@@ -862,7 +890,7 @@ function initDispatchDualAxisYoY(yoY, dispatch, chartId) {
       },
       scales: {
         x: {
-          ticks: { callback: v => months[v] || '' }
+          ticks: { callback: (_, index) => range[index] !== undefined ? months[range[index]] : '' }
         },
         y: {
           type: 'linear',
@@ -928,10 +956,14 @@ function renderDispatchYoYChart(yoY, dataKey, chartId) {
 }
 
 function initDispatchYoYChart(yoY, dataKey, chartId) {
-  if (chartInstances[chartId]) chartInstances[chartId].destroy();
+  if (chartInstances[chartId]) {
+    chartInstances[chartId].destroy();
+  }
 
   const ctx = document.getElementById(chartId);
   if (!ctx) return;
+
+  ctx.width = ctx.width;
 
   const months = yoY.months || [];
   const range = getMonthIndexRange(currentPeriod);
@@ -978,7 +1010,7 @@ function initDispatchYoYChart(yoY, dataKey, chartId) {
       },
       scales: {
         x: {
-          ticks: { callback: v => months[v] || '' }
+          ticks: { callback: (_, index) => range[index] !== undefined ? months[range[index]] : '' }
         },
         y: {
           beginAtZero: true,
@@ -1298,10 +1330,14 @@ function renderSegmentPLChart(segmentData, chartId) {
 }
 
 function initSegmentPLChart(segmentData, chartId) {
-  if (chartInstances[chartId]) chartInstances[chartId].destroy();
+  if (chartInstances[chartId]) {
+    chartInstances[chartId].destroy();
+  }
 
   const ctx = document.getElementById(chartId);
   if (!ctx) return;
+
+  ctx.width = ctx.width;
 
   const months = segmentData.months || [];
   const range = getMonthIndexRange(currentPeriod);
@@ -1495,16 +1531,17 @@ function getPipelineStartMonthIndex() {
 }
 
 function getPipelineMonthRange(period) {
-  // パイプラインデータ: 4月(0)〜10月(6)までを表示、ただし進行月以降のみ
+  // パイプラインデータ: 4月(0)〜10月(6)の月インデックス
+  // 10月決算のQ/Hに対応: Q1(11月-1月), Q2(2月-4月), Q3(5月-7月), Q4(8月-10月)
   const startIdx = getPipelineStartMonthIndex();
 
   switch(period) {
-    case 'q1': return []; // 該当なし
-    case 'q2': return [0, 1, 2].filter(i => i >= startIdx); // 4月, 5月, 6月
-    case 'q3': return [3, 4, 5].filter(i => i >= startIdx); // 7月, 8月, 9月
-    case 'q4': return [6].filter(i => i >= startIdx); // 10月のみ
-    case 'h1': return [0, 1, 2].filter(i => i >= startIdx); // 4月, 5月, 6月
-    case 'h2': return [3, 4, 5, 6].filter(i => i >= startIdx); // 7月〜10月
+    case 'q1': return []; // 11月-1月: パイプラインに該当月がない
+    case 'q2': return [0].filter(i => i >= startIdx); // 2月-4月: 4月のみ
+    case 'q3': return [1, 2, 3].filter(i => i >= startIdx); // 5月-7月
+    case 'q4': return [4, 5, 6].filter(i => i >= startIdx); // 8月-10月
+    case 'h1': return [0].filter(i => i >= startIdx); // 11月-4月: 4月のみ
+    case 'h2': return [1, 2, 3, 4, 5, 6].filter(i => i >= startIdx); // 5月-10月
     default: {
       // 全期間: 進行月以降のみ
       const allMonths = [0, 1, 2, 3, 4, 5, 6];
@@ -1599,6 +1636,13 @@ function initPipelineSummaryChart(data, chartId) {
   const canvas = document.getElementById(chartId);
   if (!canvas) return;
 
+  if (chartInstances[chartId]) {
+    chartInstances[chartId].destroy();
+  }
+
+  const context = canvas.getContext('2d');
+  context.clearRect(0, 0, canvas.width, canvas.height);
+
   const months = data.months || [];
   const range = getPipelineMonthRange(currentPeriod);
   const stages = data.stages || {};
@@ -1634,10 +1678,6 @@ function initPipelineSummaryChart(data, chartId) {
   }
 
   const filteredMonths = range.map(idx => months[idx] || '');
-
-  if (chartInstances[chartId]) {
-    chartInstances[chartId].destroy();
-  }
 
   chartInstances[chartId] = new Chart(canvas, {
     type: 'bar',
