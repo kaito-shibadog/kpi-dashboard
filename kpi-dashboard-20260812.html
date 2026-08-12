@@ -63,7 +63,7 @@
 </main>
 
 <script>
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbxHfLSvyivwH41pTT567duuD1wtrSqrIua4n61WCoLL9M6vkOBaQEYd_RYBzbyDllIsJw/exec';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbxx49U-2GvgLi8PKXBSlLioL_IuYrRXyrvSu3vaAfdPJZ2RIRF0d2FlbJ7KBST-0-Pt2w/exec';
 let allData = {};
 let currentTab = 'accounting';
 let currentPeriod = 'all';
@@ -1034,6 +1034,12 @@ function renderAccounting() {
   html += renderPLComparison(sheets.PL_actual, sheets.PL_budget);
   html += '</div>';
 
+  // 純資産推移
+  html += '<div class="card">';
+  html += '<div class="card-title">純資産推移</div>';
+  html += renderNetAssets(sheets.PL_actual);
+  html += '</div>';
+
   // CF推移
   html += '<div class="card">';
   html += '<div class="card-title">CF推移・バーンレート・ランウェイ</div>';
@@ -1060,6 +1066,7 @@ function renderAccounting() {
 
   setTimeout(() => {
     initPLComparisonChart(sheets.PL_actual, sheets.PL_budget);
+    initNetAssetsChart(sheets.PL_actual);
     initCFChart(sheets.CF);
     if (sheets.PL_direct) initSegmentPLChart(sheets.PL_direct, 'segment-pl-chart-direct');
     if (sheets.PL_dispatch) initSegmentPLChart(sheets.PL_dispatch, 'segment-pl-chart-dispatch');
@@ -1130,6 +1137,40 @@ function renderPLComparison(actual, budget) {
     html += `<tr><td>${row.item}</td>`;
     for (let idx of range) {
       if (idx < (row.values || []).length) html += `<td>${formatNum(row.values[idx])}</td>`;
+    }
+    html += '</tr>';
+  }
+
+  html += '</tbody></table></div>';
+  return html;
+}
+
+// ============================================================
+// 純資産推移
+// ============================================================
+function renderNetAssets(actual) {
+  if (!actual || actual.error) return '<div style="color:red;">純資産データなし</div>';
+
+  const months = actual.months || [];
+  const range = getMonthIndexRange(currentPeriod);
+
+  let html = '';
+
+  // グラフ
+  html += '<div class="chart-container"><canvas id="net-assets-chart"></canvas></div>';
+
+  // テーブル
+  html += '<div class="table-container"><table><thead><tr><th>月</th>';
+  for (let idx of range) {
+    if (idx < months.length) html += `<th>${months[idx]}</th>`;
+  }
+  html += '</tr></thead><tbody>';
+
+  const netAssetsRow = actual.rows?.find(r => r.item === '純資産');
+  if (netAssetsRow) {
+    html += '<tr><td>純資産</td>';
+    for (let idx of range) {
+      if (idx < (netAssetsRow.values || []).length) html += `<td>${formatNum(netAssetsRow.values[idx])}</td>`;
     }
     html += '</tr>';
   }
@@ -1301,6 +1342,88 @@ function renderCFChart(cfData) {
   html += '</div>';
 
   return html;
+}
+
+// ============================================================
+// 純資産推移チャート
+// ============================================================
+function initNetAssetsChart(actual) {
+  if (chartInstances['net-assets-chart']) {
+    chartInstances['net-assets-chart'].destroy();
+  }
+
+  const ctx = document.getElementById('net-assets-chart');
+  if (!ctx) return;
+
+  ctx.width = ctx.width;
+
+  const months = actual.months || [];
+  const range = getMonthIndexRange(currentPeriod);
+  const filteredMonths = range.filter(i => i < months.length).map(i => months[i]);
+
+  const netAssetsRow = actual.rows?.find(r => r.item === '純資産');
+  const netAssetsValues = (netAssetsRow || {}).values || [];
+
+  const filter = (vals) => range.map(i => vals[i] ?? null);
+
+  chartInstances['net-assets-chart'] = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: filteredMonths,
+      datasets: [
+        {
+          label: '純資産',
+          data: filter(netAssetsValues),
+          borderColor: '#2563eb',
+          backgroundColor: 'transparent',
+          borderWidth: 2,
+          tension: 0.4,
+          fill: false
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'top' },
+        tooltip: {
+          mode: 'index',
+          intersect: false,
+          padding: 12,
+          backgroundColor: 'rgba(0, 0, 0, 0.8)',
+          titleFont: { size: 14 },
+          bodyFont: { size: 13 },
+          callbacks: {
+            label: (context) => {
+              return `${context.dataset.label}: ${formatNum(context.parsed.y)}`;
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          ticks: { callback: (_, index) => range[index] !== undefined ? months[range[index]] : '' }
+        },
+        y: {
+          ticks: { callback: v => formatNum(v) },
+          grid: {
+            drawBorder: true,
+            drawOnChartArea: true,
+            drawTicks: true,
+            color: (context) => {
+              if (context.tick.value === 0) return '#999';
+              return '#e5e7eb';
+            },
+            lineWidth: (context) => {
+              if (context.tick.value === 0) return 2;
+              return 1;
+            }
+          }
+        }
+      }
+    }
+  });
 }
 
 // ============================================================
