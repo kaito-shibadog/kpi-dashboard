@@ -35,11 +35,14 @@
     <div class="text-xs text-gray-500 mt-2" id="last-updated"></div>
 
     <!-- タブナビゲーション -->
-    <div class="flex gap-3 border-b border-gray-200 mt-4 pb-3">
-      <button class="tab-btn active" onclick="switchTab('accounting', this)">会計</button>
-      <button class="tab-btn" onclick="switchTab('indicators', this)">事業指標</button>
-      <button class="tab-btn" onclick="switchTab('comparison', this)">昨対比</button>
-      <button class="tab-btn" onclick="switchTab('pipeline', this)">パイプライン</button>
+    <div class="flex gap-3 border-b border-gray-200 mt-4 pb-3 justify-between items-center">
+      <div class="flex gap-3">
+        <button class="tab-btn active" onclick="switchTab('accounting', this)">会計</button>
+        <button class="tab-btn" onclick="switchTab('indicators', this)">事業指標</button>
+        <button class="tab-btn" onclick="switchTab('comparison', this)">昨対比</button>
+        <button class="tab-btn" onclick="switchTab('pipeline', this)">パイプライン</button>
+      </div>
+      <div class="text-xs text-gray-500 whitespace-nowrap">※ エラーが発生した場合は Cmd+Shift+R でハードリロード</div>
     </div>
 
     <!-- 期間選択 -->
