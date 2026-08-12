@@ -305,7 +305,7 @@ function initGenreChart(genreData, chartId) {
       scales: {
         x: {
           stacked: true,
-          ticks: { callback: v => months[v] || '' }
+          ticks: { callback: (_, index) => range[index] !== undefined ? months[range[index]] : '' }
         },
         y: {
           stacked: true,
