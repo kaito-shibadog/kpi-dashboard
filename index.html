@@ -141,6 +141,10 @@ function switchTab(tabName, btnEl) {
     renderComparison();
   } else if (tabName === 'pipeline') {
     renderPipeline();
+  } else if (tabName === 'pipeline-csa') {
+    renderPipelineCSA();
+  } else if (tabName === 'pipeline-csb') {
+    renderPipelineCSB();
   } else {
     document.getElementById('content').innerHTML = '<p style="text-align:center; color:#999; padding:40px;">今後実装予定</p>';
   }
@@ -1548,14 +1552,37 @@ function renderPipeline() {
 }
 
 function renderPipelineCSA() {
+  // 従来のパイプライン表示と同じ内容を表示
   const sheets = allData.sheets || {};
   let html = '';
 
-  html += '<div class="card"><div class="card-title">パイプライン(CSA)</div>';
-  html += '<p style="color:#666; font-size:14px;">CSA パイプラインデータを表示します</p>';
-  html += '</div>';
+  if (sheets.pipeline_summary) {
+    html += '<div class="card">';
+    html += '<div class="card-title">全体ファネル別金額（サマリ）</div>';
+    html += renderPipelineSummaryTable(sheets.pipeline_summary);
+    html += renderPipelineSummaryChart(sheets.pipeline_summary, 'pipeline-csa-chart');
+    html += '</div>';
+  }
+
+  if (sheets.pipeline_03_pricing) {
+    html += '<div class="card">';
+    html += '<div class="card-title">03 価格合意案件一覧（全案件）</div>';
+    html += renderPipelineStageTable(sheets.pipeline_03_pricing);
+    html += '</div>';
+  }
+
+  if (sheets.pipeline_02_solution) {
+    html += '<div class="card">';
+    html += '<div class="card-title">02 解決策合意案件一覧（上位5社）</div>';
+    html += renderPipelineStageTable(sheets.pipeline_02_solution);
+    html += '</div>';
+  }
 
   document.getElementById('content').innerHTML = html;
+
+  setTimeout(() => {
+    if (sheets.pipeline_summary) initPipelineSummaryChart(sheets.pipeline_summary, 'pipeline-csa-chart');
+  }, 100);
 }
 
 function renderPipelineCSB() {
