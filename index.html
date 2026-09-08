@@ -48,7 +48,8 @@
         <button class="tab-btn active" onclick="switchTab('accounting', this)">会計</button>
         <button class="tab-btn" onclick="switchTab('indicators', this)">事業指標</button>
         <button class="tab-btn" onclick="switchTab('comparison', this)">昨対比</button>
-        <button class="tab-btn" onclick="switchTab('pipeline', this)">パイプライン</button>
+        <button class="tab-btn" onclick="switchTab('pipeline-csa', this)">パイプライン(CSA)</button>
+        <button class="tab-btn" onclick="switchTab('pipeline-csb', this)">パイプライン(CSB)</button>
       </div>
       <div class="text-xs text-gray-500 whitespace-nowrap">※ エラーが発生した場合は Cmd+Shift+R でハードリロード</div>
     </div>
@@ -75,6 +76,7 @@
 
 <script>
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbxuvcMg4Dw7fVnn59zF8oSL6ufN0dBK9-VFGC_G1dawEkQCrgk7ZpfmNPvhlX0lk7H7aA/exec';
+const MONTH_NAMES = ['11月', '12月', '1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月'];
 let allData = {};
 let currentTab = 'accounting';
 let currentPeriod = 'all';
@@ -155,8 +157,10 @@ function setPeriod(period, btnEl) {
     renderIndicators();
   } else if (currentTab === 'comparison') {
     renderComparison();
-  } else if (currentTab === 'pipeline') {
-    renderPipeline();
+  } else if (currentTab === 'pipeline-csa') {
+    renderPipelineCSA();
+  } else if (currentTab === 'pipeline-csb') {
+    renderPipelineCSB();
   }
 }
 
@@ -1085,10 +1089,11 @@ function renderMonthlyProgress(actual, budget) {
 
   // GAS から取得した現在の進捗月を使用（ない場合は8月で デフォルト）
   const currentMonthIdx = allData.currentMonthIndex !== undefined ? allData.currentMonthIndex : 9;
+  const currentMonthName = MONTH_NAMES[currentMonthIdx];
   const actualRows = actual.rows || [];
   const budgetRows = budget.rows || [];
 
-  let html = '<div class="card"><div class="card-title">当月予算進捗（8月）</div>';
+  let html = `<div class="card"><div class="card-title">当月予算進捗（${currentMonthName}）</div>`;
   html += '<div class="table-container"><table>';
   html += '<thead><tr><th>指標</th><th>実績</th><th>予算</th><th>比率</th></tr></thead>';
   html += '<tbody>';
@@ -1540,6 +1545,28 @@ function renderPipeline() {
   setTimeout(() => {
     if (sheets.pipeline_summary) initPipelineSummaryChart(sheets.pipeline_summary, 'pipeline-chart');
   }, 100);
+}
+
+function renderPipelineCSA() {
+  const sheets = allData.sheets || {};
+  let html = '';
+
+  html += '<div class="card"><div class="card-title">パイプライン(CSA)</div>';
+  html += '<p style="color:#666; font-size:14px;">CSA パイプラインデータを表示します</p>';
+  html += '</div>';
+
+  document.getElementById('content').innerHTML = html;
+}
+
+function renderPipelineCSB() {
+  const sheets = allData.sheets || {};
+  let html = '';
+
+  html += '<div class="card"><div class="card-title">パイプライン(CSB)</div>';
+  html += '<p style="color:#666; font-size:14px;">CSB パイプラインデータを表示します</p>';
+  html += '</div>';
+
+  document.getElementById('content').innerHTML = html;
 }
 
 function getPipelineStartMonthIndex() {
