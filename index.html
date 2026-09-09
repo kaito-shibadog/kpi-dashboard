@@ -75,7 +75,7 @@
 </main>
 
 <script>
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbxuvcMg4Dw7fVnn59zF8oSL6ufN0dBK9-VFGC_G1dawEkQCrgk7ZpfmNPvhlX0lk7H7aA/exec';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbwHOARPkant5rZzAjvfjoCapT3O3LIwlROG4GvguXgUfxrPMhOoJK-kRBRNcXgpUimklg/exec';
 const MONTH_NAMES = ['11月', '12月', '1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月'];
 let allData = {};
 let currentTab = 'accounting';
@@ -1589,11 +1589,33 @@ function renderPipelineCSB() {
   const sheets = allData.sheets || {};
   let html = '';
 
-  html += '<div class="card"><div class="card-title">パイプライン(CSB)</div>';
-  html += '<p style="color:#666; font-size:14px;">CSB パイプラインデータを表示します</p>';
-  html += '</div>';
+  if (sheets.pipeline_summary_csb) {
+    html += '<div class="card">';
+    html += '<div class="card-title">全体ファネル別金額（サマリ）</div>';
+    html += renderPipelineSummaryTable(sheets.pipeline_summary_csb);
+    html += renderPipelineSummaryChart(sheets.pipeline_summary_csb, 'pipeline-csb-chart');
+    html += '</div>';
+  }
+
+  if (sheets.pipeline_03_pricing_csb) {
+    html += '<div class="card">';
+    html += '<div class="card-title">03 価格合意案件一覧（全案件）</div>';
+    html += renderPipelineStageTable(sheets.pipeline_03_pricing_csb);
+    html += '</div>';
+  }
+
+  if (sheets.pipeline_02_solution_csb) {
+    html += '<div class="card">';
+    html += '<div class="card-title">02 解決策合意案件一覧（上位5社）</div>';
+    html += renderPipelineStageTable(sheets.pipeline_02_solution_csb);
+    html += '</div>';
+  }
 
   document.getElementById('content').innerHTML = html;
+
+  setTimeout(() => {
+    if (sheets.pipeline_summary_csb) initPipelineSummaryChart(sheets.pipeline_summary_csb, 'pipeline-csb-chart');
+  }, 100);
 }
 
 function getPipelineStartMonthIndex() {
