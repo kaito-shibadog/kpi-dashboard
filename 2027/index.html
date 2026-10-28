@@ -1061,29 +1061,11 @@ function renderAccounting() {
   html += renderCFChart(sheets.CF);
   html += '</div>';
 
-  // 直接雇用PL
-  if (sheets.PL_direct) {
-    html += '<div class="card">';
-    html += '<div class="card-title">直接雇用部門PL月次推移</div>';
-    html += renderSegmentPLChart(sheets.PL_direct, 'segment-pl-chart-direct');
-    html += '</div>';
-  }
-
-  // 派遣PL
-  if (sheets.PL_dispatch) {
-    html += '<div class="card">';
-    html += '<div class="card-title">派遣部門PL月次推移</div>';
-    html += renderSegmentPLChart(sheets.PL_dispatch, 'segment-pl-chart-dispatch');
-    html += '</div>';
-  }
-
   document.getElementById('content').innerHTML = html;
 
   setTimeout(() => {
     initPLComparisonChart(sheets.PL_actual, sheets.PL_budget);
     initCFChart(sheets.CF);
-    if (sheets.PL_direct) initSegmentPLChart(sheets.PL_direct, 'segment-pl-chart-direct');
-    if (sheets.PL_dispatch) initSegmentPLChart(sheets.PL_dispatch, 'segment-pl-chart-dispatch');
   }, 100);
 }
 
