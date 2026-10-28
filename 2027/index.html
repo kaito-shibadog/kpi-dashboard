@@ -1278,7 +1278,7 @@ function renderCFChart(cfData) {
   let html = '<div class="chart-container"><canvas id="cf-chart"></canvas></div>';
 
   // グラフとカードの間の注記
-  html += '<div style="font-size: 11px; color: #666; margin-top: 16px; margin-bottom: 16px;">※現預金担保の短期借入3,000万円を含む</div>';
+  html += '<div style="font-size: 11px; color: #666; margin-top: 16px; margin-bottom: 16px;">※みずほ銀行の当座貸越枠5,000万円については含まない</div>';
 
   // バーンレート・ランウェイを大きく表示
   const burnRateRow = (cfData.rows || []).find(r => r.item === 'バーンレート');
