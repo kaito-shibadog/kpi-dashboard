@@ -75,7 +75,7 @@
 </main>
 
 <script>
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbxJwbd5lfVEA4zHYuPw9w2C7Da-EEuWKbqhbZowILNcPymKy_6WW-U3ivxgmJ6W4UNE/exec';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbyAr78ytUrbrBH7AtCOs5kkGIlAeCdvrLbxuBSqSVtW2BbNDx_wOn0NU9aKNXv_nqUl/exec';
 const MONTH_NAMES = ['11月', '12月', '1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月'];
 let allData = {};
 let currentTab = 'accounting';
@@ -1618,33 +1618,8 @@ function renderPipelineCSB() {
   }, 100);
 }
 
-function getPipelineStartMonthIndex() {
-  // 会計の currentMonthIndex (0-11) をパイプラインのインデックス (0-6) に変換
-  // 会計: 0=11月, 1=12月, 2=1月, 3=2月, 4=3月, 5=4月, 6=5月, 7=6月, 8=7月, 9=8月, 10=9月, 11=10月
-  // パイプライン: 0=4月, 1=5月, 2=6月, 3=7月, 4=8月, 5=9月, 6=10月
-  const currentMonthIdx = allData.currentMonthIndex || 9; // デフォルト: 8月
-  const pipelineStartIdx = currentMonthIdx - 5; // 会計の8月(9)→パイプラインの8月(4)
-  return Math.max(0, pipelineStartIdx);
-}
-
 function getPipelineMonthRange(period) {
-  // パイプラインデータ: 4月(0)〜10月(6)の月インデックス
-  // 10月決算のQ/Hに対応: Q1(11月-1月), Q2(2月-4月), Q3(5月-7月), Q4(8月-10月)
-  const startIdx = getPipelineStartMonthIndex();
-
-  switch(period) {
-    case 'q1': return []; // 11月-1月: パイプラインに該当月がない
-    case 'q2': return [0].filter(i => i >= startIdx); // 2月-4月: 4月のみ
-    case 'q3': return [1, 2, 3].filter(i => i >= startIdx); // 5月-7月
-    case 'q4': return [4, 5, 6].filter(i => i >= startIdx); // 8月-10月
-    case 'h1': return [0].filter(i => i >= startIdx); // 11月-4月: 4月のみ
-    case 'h2': return [1, 2, 3, 4, 5, 6].filter(i => i >= startIdx); // 5月-10月
-    default: {
-      // 全期間: 進行月以降のみ
-      const allMonths = [0, 1, 2, 3, 4, 5, 6];
-      return allMonths.filter(i => i >= startIdx);
-    }
-  }
+  return getMonthIndexRange(period);
 }
 
 function renderPipelineSummaryTable(data) {
@@ -1701,14 +1676,8 @@ function renderPipelineStageTable(data) {
 
   const months = data.months || [];
   const stageData = data.data || {};
-  const currentMonthIdx = allData.currentMonthIndex || 9; // 会計の8月(9)
-  const startIdx = Math.max(0, currentMonthIdx - 8); // 会計の8月(9)→案件一覧の8月(1)
-  const endIdx = 3; // 案件一覧では2026-10 までのみ (月配列: 0=7月, 3=10月)
-
   let html = '';
   for (let i = 0; i < months.length; i++) {
-    // 進行月から2026-10までのみ表示
-    if (i < startIdx || i > endIdx) continue;
 
     const month = months[i];
     const items = stageData[month] || [];
